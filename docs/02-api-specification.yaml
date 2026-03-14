@@ -1,0 +1,2973 @@
+# PTO Tracker API Specification
+# OpenAPI 3.1.0
+
+openapi: 3.1.0
+info:
+  title: PTO Tracker API
+  description: |
+    REST API for the PTO (Paid Time Off) Tracker application.
+
+    ## Authentication
+    This API uses JWT Bearer tokens for authentication. Access tokens expire after 15 minutes.
+    Use the refresh token endpoint to obtain new access tokens.
+
+    ## Rate Limiting
+    - Standard endpoints: 100 requests per minute
+    - Auth endpoints: 10 requests per minute
+    - Export endpoints: 5 requests per minute
+
+    Rate limit headers are included in all responses:
+    - `X-RateLimit-Limit`: Maximum requests allowed
+    - `X-RateLimit-Remaining`: Requests remaining in window
+    - `X-RateLimit-Reset`: Unix timestamp when the limit resets
+
+    ## Timezone Handling
+    All dates are stored in UTC. The `X-Timezone` header can be used to receive 
+    dates formatted in a specific timezone. Default is the organization's timezone.
+
+    ## Pagination
+    List endpoints support pagination via `page` and `pageSize` query parameters.
+    Responses include `X-Total-Count` header with the total number of items.
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api-support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Development server
+  - url: https://api.pto-tracker.example.com/v1
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Users
+    description: User management operations
+  - name: Policies
+    description: PTO policy configuration
+  - name: Balances
+    description: PTO balance and accrual management
+  - name: Requests
+    description: PTO request operations
+  - name: Approvals
+    description: Request approval workflow
+  - name: Calendar
+    description: Calendar and holiday management
+  - name: Notifications
+    description: Notification preferences and history
+  - name: Reports
+    description: Reporting and analytics
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ============================================
+  # AUTHENTICATION
+  # ============================================
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate user
+      description: Login with email and password to receive access and refresh tokens
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: user@example.com
+              password: your-password-here
+      responses:
+        "200":
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access token
+      description: Use refresh token to obtain new access and refresh tokens
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+                  description: Valid refresh token
+      responses:
+        "200":
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout user
+      description: Invalidate current session and refresh token
+      operationId: logout
+      responses:
+        "204":
+          description: Successfully logged out
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Request password reset
+      description: Send password reset email to user
+      operationId: forgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "204":
+          description: Reset email sent (always returns success to prevent email enumeration)
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Reset password
+      description: Reset password using token from email
+      operationId: resetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, password]
+              properties:
+                token:
+                  type: string
+                  description: Reset token from email
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+      responses:
+        "204":
+          description: Password reset successfully
+        "400":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user
+      description: Get the authenticated user's profile
+      operationId: getCurrentUser
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ============================================
+  # USERS
+  # ============================================
+  /users:
+    get:
+      tags: [Users]
+      summary: List users
+      description: Get paginated list of users (Admin only)
+      operationId: listUsers
+      parameters:
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search by name or email
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [employee, manager, admin]
+          description: Filter by role
+        - name: managerId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by manager
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+          description: Filter by status
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, email, hireDate, createdAt]
+            default: name
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        "200":
+          description: List of users
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: Total number of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      tags: [Users]
+      summary: Create user
+      description: Create a new user (Admin only)
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserRequest"
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserIdParam"
+
+    get:
+      tags: [Users]
+      summary: Get user
+      description: Get user by ID
+      operationId: getUser
+      responses:
+        "200":
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Users]
+      summary: Update user
+      description: Update user details
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags: [Users]
+      summary: Deactivate user
+      description: Soft delete/deactivate a user (Admin only)
+      operationId: deactivateUser
+      responses:
+        "204":
+          description: User deactivated successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/{userId}/manager:
+    parameters:
+      - $ref: "#/components/parameters/UserIdParam"
+
+    put:
+      tags: [Users]
+      summary: Assign manager
+      description: Assign or change user's manager (Admin only)
+      operationId: assignManager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [managerId]
+              properties:
+                managerId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Manager's user ID, null to remove
+      responses:
+        "200":
+          description: Manager assigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/{userId}/roles:
+    parameters:
+      - $ref: "#/components/parameters/UserIdParam"
+
+    put:
+      tags: [Users]
+      summary: Update user roles
+      description: Update user's roles (Admin only)
+      operationId: updateUserRoles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roles]
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: string
+                    enum: [employee, manager, admin]
+                  minItems: 1
+      responses:
+        "200":
+          description: Roles updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ============================================
+  # POLICIES
+  # ============================================
+  /policies:
+    get:
+      tags: [Policies]
+      summary: List policies
+      description: Get all PTO policies
+      operationId: listPolicies
+      parameters:
+        - name: ptoTypeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by PTO type
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        "200":
+          description: List of policies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Policies]
+      summary: Create policy
+      description: Create a new PTO policy (Admin only)
+      operationId: createPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePolicyRequest"
+            example:
+              name: Standard Vacation Policy
+              ptoTypeId: 550e8400-e29b-41d4-a716-446655440001
+              accrualRate: 1.25
+              accrualFrequency: biweekly
+              maxAccrual: 120
+              carryoverCap: 40
+              carryoverExpireMonths: 3
+              allowNegativeBalance: false
+              maxNegativeBalance: 0
+              probationDays: 90
+              minimumIncrement: 0.5
+              requiresApproval: true
+              isActive: true
+      responses:
+        "201":
+          description: Policy created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /policies/{policyId}:
+    parameters:
+      - $ref: "#/components/parameters/PolicyIdParam"
+
+    get:
+      tags: [Policies]
+      summary: Get policy
+      description: Get policy by ID
+      operationId: getPolicy
+      responses:
+        "200":
+          description: Policy details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Policies]
+      summary: Update policy
+      description: Update policy details (Admin only)
+      operationId: updatePolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePolicyRequest"
+      responses:
+        "200":
+          description: Policy updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags: [Policies]
+      summary: Deactivate policy
+      description: Deactivate a policy (Admin only)
+      operationId: deactivatePolicy
+      responses:
+        "204":
+          description: Policy deactivated successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /policies/{policyId}/preview:
+    parameters:
+      - $ref: "#/components/parameters/PolicyIdParam"
+
+    get:
+      tags: [Policies]
+      summary: Preview accrual calculation
+      description: Preview how balances would accrue for a user under this policy
+      operationId: previewAccrual
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: User ID for personalized preview (uses hire date)
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Preview start date (default today)
+        - name: months
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 24
+            default: 12
+          description: Number of months to preview
+      responses:
+        "200":
+          description: Accrual preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccrualPreview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /policies/assignments:
+    get:
+      tags: [Policies]
+      summary: List policy assignments
+      description: Get policy assignments for users
+      operationId: listPolicyAssignments
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by user
+        - name: policyId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by policy
+      responses:
+        "200":
+          description: List of policy assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PolicyAssignment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Policies]
+      summary: Assign policy to users
+      description: Assign a policy to one or more users (Admin only)
+      operationId: assignPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policyId, userIds]
+              properties:
+                policyId:
+                  type: string
+                  format: uuid
+                userIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                effectiveDate:
+                  type: string
+                  format: date
+                  description: When the assignment takes effect (default today)
+      responses:
+        "201":
+          description: Policy assigned successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PolicyAssignment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /pto-types:
+    get:
+      tags: [Policies]
+      summary: List PTO types
+      description: Get all PTO types (vacation, sick, etc.)
+      operationId: listPtoTypes
+      responses:
+        "200":
+          description: List of PTO types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PtoType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Policies]
+      summary: Create PTO type
+      description: Create a new PTO type (Admin only)
+      operationId: createPtoType
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePtoTypeRequest"
+      responses:
+        "201":
+          description: PTO type created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PtoType"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ============================================
+  # BALANCES
+  # ============================================
+  /balances:
+    get:
+      tags: [Balances]
+      summary: Get my balances
+      description: Get current user's PTO balances
+      operationId: getMyBalances
+      responses:
+        "200":
+          description: User's PTO balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Balance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /balances/users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserIdParam"
+
+    get:
+      tags: [Balances]
+      summary: Get user balances
+      description: Get a specific user's PTO balances (Manager for direct reports, Admin for all)
+      operationId: getUserBalances
+      responses:
+        "200":
+          description: User's PTO balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Balance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /balances/users/{userId}/ledger:
+    parameters:
+      - $ref: "#/components/parameters/UserIdParam"
+
+    get:
+      tags: [Balances]
+      summary: Get balance ledger
+      description: Get transaction history for a user's balances
+      operationId: getBalanceLedger
+      parameters:
+        - name: ptoTypeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by PTO type
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter from date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter to date
+        - name: transactionType
+          in: query
+          schema:
+            type: string
+            enum: [accrual, debit, adjustment, carryover, expiration]
+          description: Filter by transaction type
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: Balance ledger entries
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LedgerEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /balances/users/{userId}/adjust:
+    parameters:
+      - $ref: "#/components/parameters/UserIdParam"
+
+    post:
+      tags: [Balances]
+      summary: Adjust balance
+      description: Manually adjust a user's balance (Admin only)
+      operationId: adjustBalance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BalanceAdjustmentRequest"
+            example:
+              ptoTypeId: 550e8400-e29b-41d4-a716-446655440001
+              hours: 8
+              reason: Correction for missed accrual
+              effectiveDate: "2026-01-15"
+      responses:
+        "200":
+          description: Balance adjusted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Balance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  # ============================================
+  # PTO REQUESTS
+  # ============================================
+  /requests:
+    get:
+      tags: [Requests]
+      summary: List my requests
+      description: Get current user's PTO requests
+      operationId: listMyRequests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, denied, cancelled]
+          description: Filter by status
+        - name: ptoTypeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by PTO type
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter requests starting after this date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter requests ending before this date
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: List of PTO requests
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PtoRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Requests]
+      summary: Create PTO request
+      description: Submit a new PTO request
+      operationId: createRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePtoRequestRequest"
+            example:
+              ptoTypeId: 550e8400-e29b-41d4-a716-446655440001
+              startDate: "2026-02-15"
+              endDate: "2026-02-19"
+              isHalfDayStart: false
+              isHalfDayEnd: true
+              notes: Family vacation - will have limited email access
+      responses:
+        "201":
+          description: PTO request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PtoRequest"
+        "400":
+          description: Invalid request (e.g., past dates, invalid range)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Conflict with existing request
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Error"
+                  - type: object
+                    properties:
+                      conflictingRequests:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PtoRequest"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /requests/{requestId}:
+    parameters:
+      - $ref: "#/components/parameters/RequestIdParam"
+
+    get:
+      tags: [Requests]
+      summary: Get request
+      description: Get PTO request details
+      operationId: getRequest
+      responses:
+        "200":
+          description: PTO request details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PtoRequestDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Requests]
+      summary: Update request
+      description: Update a pending PTO request (owner only)
+      operationId: updateRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePtoRequestRequest"
+      responses:
+        "200":
+          description: Request updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PtoRequest"
+        "400":
+          description: Cannot update non-pending request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /requests/{requestId}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/RequestIdParam"
+
+    post:
+      tags: [Requests]
+      summary: Cancel request
+      description: Cancel a PTO request (owner only, pending or approved)
+      operationId: cancelRequest
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: Reason for cancellation
+      responses:
+        "200":
+          description: Request cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PtoRequest"
+        "400":
+          description: Cannot cancel request in current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /requests/conflicts:
+    get:
+      tags: [Requests]
+      summary: Check for conflicts
+      description: Check if a date range conflicts with existing requests
+      operationId: checkConflicts
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: excludeRequestId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Request ID to exclude from conflict check (for updates)
+      responses:
+        "200":
+          description: Conflict check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasConflict:
+                    type: boolean
+                  conflicts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PtoRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ============================================
+  # APPROVALS
+  # ============================================
+  /approvals/pending:
+    get:
+      tags: [Approvals]
+      summary: List pending approvals
+      description: Get pending requests for approval (Manager/Admin)
+      operationId: listPendingApprovals
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by requesting user
+        - name: ptoTypeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by PTO type
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: List of pending approvals
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PtoRequestDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /approvals/{requestId}/approve:
+    parameters:
+      - $ref: "#/components/parameters/RequestIdParam"
+
+    post:
+      tags: [Approvals]
+      summary: Approve request
+      description: Approve a PTO request
+      operationId: approveRequest
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  maxLength: 500
+                  description: Optional approval comment
+      responses:
+        "200":
+          description: Request approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PtoRequest"
+        "400":
+          description: Cannot approve request in current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /approvals/{requestId}/deny:
+    parameters:
+      - $ref: "#/components/parameters/RequestIdParam"
+
+    post:
+      tags: [Approvals]
+      summary: Deny request
+      description: Deny a PTO request
+      operationId: denyRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  description: Reason for denial (required)
+      responses:
+        "200":
+          description: Request denied successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PtoRequest"
+        "400":
+          description: Cannot deny request in current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /approvals/bulk:
+    post:
+      tags: [Approvals]
+      summary: Bulk approve/deny
+      description: Approve or deny multiple requests at once
+      operationId: bulkApproval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, requestIds]
+              properties:
+                action:
+                  type: string
+                  enum: [approve, deny]
+                requestIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 50
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: Required if action is 'deny'
+      responses:
+        "200":
+          description: Bulk action completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: array
+                    items:
+                      type: string
+                      format: uuid
+                  failed:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        requestId:
+                          type: string
+                          format: uuid
+                        error:
+                          type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /approvals/delegation:
+    get:
+      tags: [Approvals]
+      summary: Get delegation settings
+      description: Get current user's approval delegation settings
+      operationId: getDelegation
+      responses:
+        "200":
+          description: Delegation settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalDelegation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    put:
+      tags: [Approvals]
+      summary: Set delegation
+      description: Configure approval delegation for absence
+      operationId: setDelegation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalDelegationRequest"
+      responses:
+        "200":
+          description: Delegation configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalDelegation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  # ============================================
+  # CALENDAR & HOLIDAYS
+  # ============================================
+  /calendar/events:
+    get:
+      tags: [Calendar]
+      summary: Get calendar events
+      description: Get PTO events for calendar display
+      operationId: getCalendarEvents
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Calendar view start date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Calendar view end date
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific user
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by team/department
+        - name: includeHolidays
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Include company holidays
+      responses:
+        "200":
+          description: Calendar events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ptoEvents:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CalendarEvent"
+                  holidays:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Holiday"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /calendar/holidays:
+    get:
+      tags: [Calendar]
+      summary: List holidays
+      description: Get company holidays for a year
+      operationId: listHolidays
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2030
+          description: Year to get holidays for (default current year)
+      responses:
+        "200":
+          description: List of holidays
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Holiday"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Calendar]
+      summary: Create holiday
+      description: Create a company holiday (Admin only)
+      operationId: createHoliday
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHolidayRequest"
+      responses:
+        "201":
+          description: Holiday created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holiday"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Holiday already exists for this date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /calendar/holidays/{holidayId}:
+    parameters:
+      - name: holidayId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    patch:
+      tags: [Calendar]
+      summary: Update holiday
+      description: Update a company holiday (Admin only)
+      operationId: updateHoliday
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateHolidayRequest"
+      responses:
+        "200":
+          description: Holiday updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holiday"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Calendar]
+      summary: Delete holiday
+      description: Delete a company holiday (Admin only)
+      operationId: deleteHoliday
+      responses:
+        "204":
+          description: Holiday deleted successfully
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ============================================
+  # NOTIFICATIONS
+  # ============================================
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Get notifications
+      description: Get user's notifications
+      operationId: getNotifications
+      parameters:
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Filter to unread notifications only
+        - $ref: "#/components/parameters/PageParam"
+        - $ref: "#/components/parameters/PageSizeParam"
+      responses:
+        "200":
+          description: List of notifications
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+            X-Unread-Count:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /notifications/mark-read:
+    post:
+      tags: [Notifications]
+      summary: Mark notifications as read
+      description: Mark one or more notifications as read
+      operationId: markNotificationsRead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notificationIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Specific notification IDs (omit to mark all as read)
+      responses:
+        "204":
+          description: Notifications marked as read
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /notifications/preferences:
+    get:
+      tags: [Notifications]
+      summary: Get notification preferences
+      description: Get user's notification preferences
+      operationId: getNotificationPreferences
+      responses:
+        "200":
+          description: Notification preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferences"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    put:
+      tags: [Notifications]
+      summary: Update notification preferences
+      description: Update user's notification preferences
+      operationId: updateNotificationPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationPreferences"
+      responses:
+        "200":
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferences"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ============================================
+  # REPORTS
+  # ============================================
+  /reports/usage:
+    get:
+      tags: [Reports]
+      summary: PTO usage report
+      description: Get PTO usage statistics (Manager for team, Admin for all)
+      operationId: getUsageReport
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: ptoTypeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: groupBy
+          in: query
+          schema:
+            type: string
+            enum: [user, ptoType, month, department]
+            default: user
+      responses:
+        "200":
+          description: Usage report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /reports/balances:
+    get:
+      tags: [Reports]
+      summary: Balance summary report
+      description: Get balance summary for users (Admin only)
+      operationId: getBalanceReport
+      parameters:
+        - name: asOfDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Report balances as of this date (default today)
+        - name: ptoTypeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: showZeroBalances
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: Balance report data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceReport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /reports/export:
+    post:
+      tags: [Reports]
+      summary: Export report
+      description: Export report data to CSV or Excel (Admin only)
+      operationId: exportReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reportType, format]
+              properties:
+                reportType:
+                  type: string
+                  enum: [usage, balances, requests]
+                format:
+                  type: string
+                  enum: [csv, xlsx]
+                filters:
+                  type: object
+                  additionalProperties: true
+      responses:
+        "200":
+          description: Export file
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+# ============================================
+# COMPONENTS
+# ============================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page number
+
+    PageSizeParam:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Items per page
+
+    UserIdParam:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: User ID
+
+    RequestIdParam:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: PTO Request ID
+
+    PolicyIdParam:
+      name: policyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Policy ID
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+    Unauthorized:
+      description: Unauthorized - Invalid or missing authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            status: 401
+            code: UNAUTHORIZED
+            message: Authentication required
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            status: 403
+            code: FORBIDDEN
+            message: You do not have permission to access this resource
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            status: 404
+            code: NOT_FOUND
+            message: Resource not found
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationError"
+
+    TooManyRequests:
+      description: Too many requests - Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            status: 429
+            code: RATE_LIMIT_EXCEEDED
+            message: Too many requests, please try again later
+
+  schemas:
+    # ============================================
+    # ERROR SCHEMAS
+    # ============================================
+    Error:
+      type: object
+      required: [status, code, message]
+      properties:
+        status:
+          type: integer
+          description: HTTP status code
+        code:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details
+        traceId:
+          type: string
+          description: Request trace ID for debugging
+
+    ValidationError:
+      allOf:
+        - $ref: "#/components/schemas/Error"
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    description: Field that failed validation
+                  message:
+                    type: string
+                    description: Validation error message
+                  code:
+                    type: string
+                    description: Validation error code
+
+    # ============================================
+    # AUTH SCHEMAS
+    # ============================================
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+
+    AuthResponse:
+      type: object
+      required: [user, accessToken, refreshToken, expiresIn]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        accessToken:
+          type: string
+          description: JWT access token
+        refreshToken:
+          type: string
+          description: Refresh token for obtaining new access tokens
+        expiresIn:
+          type: integer
+          description: Access token expiration time in seconds
+
+    TokenResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+
+    # ============================================
+    # USER SCHEMAS
+    # ============================================
+    User:
+      type: object
+      required: [id, email, firstName, lastName, roles, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [employee, manager, admin]
+        permissions:
+          type: array
+          items:
+            type: string
+        managerId:
+          type: string
+          format: uuid
+          nullable: true
+        manager:
+          $ref: "#/components/schemas/UserSummary"
+        departmentId:
+          type: string
+          format: uuid
+          nullable: true
+        department:
+          type: string
+          nullable: true
+        hireDate:
+          type: string
+          format: date
+        timezone:
+          type: string
+          description: User's preferred timezone (IANA)
+          example: America/New_York
+        status:
+          type: string
+          enum: [active, inactive]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserSummary:
+      type: object
+      required: [id, firstName, lastName, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        avatarUrl:
+          type: string
+          format: uri
+
+    CreateUserRequest:
+      type: object
+      required: [email, firstName, lastName, roles, hireDate]
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [employee, manager, admin]
+          minItems: 1
+        managerId:
+          type: string
+          format: uuid
+          nullable: true
+        departmentId:
+          type: string
+          format: uuid
+          nullable: true
+        hireDate:
+          type: string
+          format: date
+        timezone:
+          type: string
+          default: America/New_York
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        timezone:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+
+    # ============================================
+    # POLICY SCHEMAS
+    # ============================================
+    PtoType:
+      type: object
+      required: [id, name, code, color, isActive]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Vacation
+        code:
+          type: string
+          example: VAC
+        description:
+          type: string
+        color:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          example: "#4CAF50"
+        icon:
+          type: string
+          example: palm-tree
+        isActive:
+          type: boolean
+        isPaid:
+          type: boolean
+          default: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreatePtoTypeRequest:
+      type: object
+      required: [name, code, color]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        code:
+          type: string
+          minLength: 2
+          maxLength: 10
+        description:
+          type: string
+          maxLength: 500
+        color:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+        icon:
+          type: string
+        isPaid:
+          type: boolean
+          default: true
+
+    Policy:
+      type: object
+      required:
+        [id, name, ptoTypeId, ptoType, accrualRate, accrualFrequency, isActive]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        ptoTypeId:
+          type: string
+          format: uuid
+        ptoType:
+          $ref: "#/components/schemas/PtoType"
+        accrualRate:
+          type: number
+          format: float
+          description: Hours accrued per accrual period
+          example: 10
+        accrualFrequency:
+          type: string
+          enum: [weekly, biweekly, monthly, quarterly, annually]
+          description: How often accrual occurs
+        maxAccrual:
+          type: number
+          format: float
+          nullable: true
+          description: Maximum hours that can be accrued (null = unlimited)
+        carryoverCap:
+          type: number
+          format: float
+          nullable: true
+          description: Maximum hours that can be carried over to next year
+        carryoverExpireMonths:
+          type: integer
+          nullable: true
+          description: Months after fiscal year end when carryover expires
+        allowNegativeBalance:
+          type: boolean
+          default: false
+          description: Whether users can go negative
+        maxNegativeBalance:
+          type: number
+          format: float
+          description: Maximum negative balance allowed (if enabled)
+          default: 0
+        probationDays:
+          type: integer
+          description: Days after hire before accrual starts
+          default: 0
+        minimumIncrement:
+          type: number
+          format: float
+          description: Minimum hours that can be requested
+          default: 0.5
+        requiresApproval:
+          type: boolean
+          default: true
+        skipWeekends:
+          type: boolean
+          default: true
+          description: Whether weekends count toward PTO days
+        skipHolidays:
+          type: boolean
+          default: true
+          description: Whether company holidays count toward PTO days
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePolicyRequest:
+      type: object
+      required: [name, ptoTypeId, accrualRate, accrualFrequency]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        ptoTypeId:
+          type: string
+          format: uuid
+        accrualRate:
+          type: number
+          format: float
+          minimum: 0
+        accrualFrequency:
+          type: string
+          enum: [weekly, biweekly, monthly, quarterly, annually]
+        maxAccrual:
+          type: number
+          format: float
+          minimum: 0
+          nullable: true
+        carryoverCap:
+          type: number
+          format: float
+          minimum: 0
+          nullable: true
+        carryoverExpireMonths:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
+        allowNegativeBalance:
+          type: boolean
+          default: false
+        maxNegativeBalance:
+          type: number
+          format: float
+          minimum: 0
+          default: 0
+        probationDays:
+          type: integer
+          minimum: 0
+          default: 0
+        minimumIncrement:
+          type: number
+          format: float
+          minimum: 0.5
+          default: 0.5
+        requiresApproval:
+          type: boolean
+          default: true
+        skipWeekends:
+          type: boolean
+          default: true
+        skipHolidays:
+          type: boolean
+          default: true
+        isActive:
+          type: boolean
+          default: true
+
+    UpdatePolicyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        accrualRate:
+          type: number
+          format: float
+          minimum: 0
+        accrualFrequency:
+          type: string
+          enum: [weekly, biweekly, monthly, quarterly, annually]
+        maxAccrual:
+          type: number
+          format: float
+          minimum: 0
+          nullable: true
+        carryoverCap:
+          type: number
+          format: float
+          minimum: 0
+          nullable: true
+        carryoverExpireMonths:
+          type: integer
+          minimum: 1
+          maximum: 12
+          nullable: true
+        allowNegativeBalance:
+          type: boolean
+        maxNegativeBalance:
+          type: number
+          format: float
+          minimum: 0
+        probationDays:
+          type: integer
+          minimum: 0
+        minimumIncrement:
+          type: number
+          format: float
+          minimum: 0.5
+        requiresApproval:
+          type: boolean
+        skipWeekends:
+          type: boolean
+        skipHolidays:
+          type: boolean
+        isActive:
+          type: boolean
+
+    PolicyAssignment:
+      type: object
+      required: [id, policyId, userId, effectiveDate]
+      properties:
+        id:
+          type: string
+          format: uuid
+        policyId:
+          type: string
+          format: uuid
+        policy:
+          $ref: "#/components/schemas/Policy"
+        userId:
+          type: string
+          format: uuid
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        effectiveDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AccrualPreview:
+      type: object
+      required: [policy, projections]
+      properties:
+        policy:
+          $ref: "#/components/schemas/Policy"
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        projections:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              accrualAmount:
+                type: number
+                format: float
+              runningBalance:
+                type: number
+                format: float
+              notes:
+                type: string
+                description: Any special notes (e.g., "Probation period ends")
+
+    # ============================================
+    # BALANCE SCHEMAS
+    # ============================================
+    Balance:
+      type: object
+      required: [ptoTypeId, ptoTypeName, available, pending, used, accrued]
+      properties:
+        ptoTypeId:
+          type: string
+          format: uuid
+        ptoTypeName:
+          type: string
+        ptoTypeCode:
+          type: string
+        ptoTypeColor:
+          type: string
+        available:
+          type: number
+          format: float
+          description: Currently available hours
+        pending:
+          type: number
+          format: float
+          description: Hours in pending requests
+        used:
+          type: number
+          format: float
+          description: Hours used this year
+        accrued:
+          type: number
+          format: float
+          description: Total hours accrued this year
+        carryover:
+          type: number
+          format: float
+          description: Hours carried over from last year
+        carryoverExpires:
+          type: string
+          format: date
+          nullable: true
+          description: When carryover expires
+        expiringHours:
+          type: number
+          format: float
+          description: Hours expiring within warning period
+        nextAccrualDate:
+          type: string
+          format: date
+          nullable: true
+        nextAccrualAmount:
+          type: number
+          format: float
+          nullable: true
+        asOfDate:
+          type: string
+          format: date-time
+
+    LedgerEntry:
+      type: object
+      required:
+        [id, ptoTypeId, transactionType, hours, runningBalance, effectiveDate]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        ptoTypeId:
+          type: string
+          format: uuid
+        ptoTypeName:
+          type: string
+        transactionType:
+          type: string
+          enum: [accrual, debit, adjustment, carryover, expiration]
+        hours:
+          type: number
+          format: float
+          description: Positive for credits, negative for debits
+        runningBalance:
+          type: number
+          format: float
+        effectiveDate:
+          type: string
+          format: date
+        description:
+          type: string
+        requestId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Associated PTO request if applicable
+        adjustedById:
+          type: string
+          format: uuid
+          nullable: true
+          description: User who made manual adjustment
+        adjustedBy:
+          $ref: "#/components/schemas/UserSummary"
+        createdAt:
+          type: string
+          format: date-time
+
+    BalanceAdjustmentRequest:
+      type: object
+      required: [ptoTypeId, hours, reason]
+      properties:
+        ptoTypeId:
+          type: string
+          format: uuid
+        hours:
+          type: number
+          format: float
+          description: Positive to add, negative to subtract
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+        effectiveDate:
+          type: string
+          format: date
+          description: When the adjustment takes effect (default today)
+
+    # ============================================
+    # PTO REQUEST SCHEMAS
+    # ============================================
+    PtoRequest:
+      type: object
+      required:
+        [
+          id,
+          userId,
+          ptoTypeId,
+          startDate,
+          endDate,
+          totalHours,
+          status,
+          createdAt,
+        ]
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        ptoTypeId:
+          type: string
+          format: uuid
+        ptoType:
+          $ref: "#/components/schemas/PtoType"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isHalfDayStart:
+          type: boolean
+          default: false
+        isHalfDayEnd:
+          type: boolean
+          default: false
+        totalHours:
+          type: number
+          format: float
+        totalDays:
+          type: number
+          format: float
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, denied, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PtoRequestDetail:
+      allOf:
+        - $ref: "#/components/schemas/PtoRequest"
+        - type: object
+          properties:
+            approvals:
+              type: array
+              items:
+                $ref: "#/components/schemas/Approval"
+            timeline:
+              type: array
+              items:
+                $ref: "#/components/schemas/RequestTimelineEntry"
+            currentBalance:
+              type: number
+              format: float
+              description: User's current balance for this PTO type
+            balanceAfterRequest:
+              type: number
+              format: float
+              description: Projected balance after this request
+
+    Approval:
+      type: object
+      required: [id, approverId, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        approverId:
+          type: string
+          format: uuid
+        approver:
+          $ref: "#/components/schemas/UserSummary"
+        status:
+          type: string
+          enum: [pending, approved, denied]
+        comment:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    RequestTimelineEntry:
+      type: object
+      required: [action, timestamp]
+      properties:
+        action:
+          type: string
+          enum: [created, updated, approved, denied, cancelled, reminder_sent]
+        timestamp:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/UserSummary"
+        details:
+          type: string
+          nullable: true
+
+    CreatePtoRequestRequest:
+      type: object
+      required: [ptoTypeId, startDate, endDate]
+      properties:
+        ptoTypeId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isHalfDayStart:
+          type: boolean
+          default: false
+        isHalfDayEnd:
+          type: boolean
+          default: false
+        notes:
+          type: string
+          maxLength: 500
+
+    UpdatePtoRequestRequest:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isHalfDayStart:
+          type: boolean
+        isHalfDayEnd:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 500
+
+    # ============================================
+    # APPROVAL SCHEMAS
+    # ============================================
+    ApprovalDelegation:
+      type: object
+      properties:
+        isActive:
+          type: boolean
+        delegateeId:
+          type: string
+          format: uuid
+          nullable: true
+        delegatee:
+          $ref: "#/components/schemas/UserSummary"
+        startDate:
+          type: string
+          format: date
+          nullable: true
+        endDate:
+          type: string
+          format: date
+          nullable: true
+        autoApproveAfterHours:
+          type: integer
+          nullable: true
+          description: Auto-approve if no action taken within this many hours
+
+    ApprovalDelegationRequest:
+      type: object
+      properties:
+        isActive:
+          type: boolean
+        delegateeId:
+          type: string
+          format: uuid
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        autoApproveAfterHours:
+          type: integer
+          minimum: 24
+          maximum: 168
+
+    # ============================================
+    # CALENDAR SCHEMAS
+    # ============================================
+    CalendarEvent:
+      type: object
+      required: [id, title, startDate, endDate, type]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isHalfDayStart:
+          type: boolean
+        isHalfDayEnd:
+          type: boolean
+        type:
+          type: string
+          enum: [pto, holiday]
+        ptoType:
+          $ref: "#/components/schemas/PtoType"
+        userId:
+          type: string
+          format: uuid
+        user:
+          $ref: "#/components/schemas/UserSummary"
+        status:
+          type: string
+          enum: [pending, approved, denied, cancelled]
+        color:
+          type: string
+
+    Holiday:
+      type: object
+      required: [id, name, date]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        date:
+          type: string
+          format: date
+        isRecurring:
+          type: boolean
+          default: false
+        recurringRule:
+          type: string
+          nullable: true
+          description: iCal RRULE format for recurring holidays
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateHolidayRequest:
+      type: object
+      required: [name, date]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        date:
+          type: string
+          format: date
+        isRecurring:
+          type: boolean
+          default: false
+        recurringRule:
+          type: string
+
+    UpdateHolidayRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        date:
+          type: string
+          format: date
+        isRecurring:
+          type: boolean
+        recurringRule:
+          type: string
+
+    # ============================================
+    # NOTIFICATION SCHEMAS
+    # ============================================
+    Notification:
+      type: object
+      required: [id, type, title, isRead, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            [
+              request_submitted,
+              request_approved,
+              request_denied,
+              request_cancelled,
+              approval_pending,
+              approval_reminder,
+              balance_low,
+              balance_expiring,
+              policy_changed,
+              system,
+            ]
+        title:
+          type: string
+        message:
+          type: string
+        isRead:
+          type: boolean
+        actionUrl:
+          type: string
+          nullable: true
+        relatedRequestId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    NotificationPreferences:
+      type: object
+      properties:
+        email:
+          type: object
+          properties:
+            requestSubmitted:
+              type: boolean
+            requestApproved:
+              type: boolean
+            requestDenied:
+              type: boolean
+            approvalPending:
+              type: boolean
+            approvalReminder:
+              type: boolean
+            balanceWarnings:
+              type: boolean
+            weeklyDigest:
+              type: boolean
+        inApp:
+          type: object
+          properties:
+            requestSubmitted:
+              type: boolean
+            requestApproved:
+              type: boolean
+            requestDenied:
+              type: boolean
+            approvalPending:
+              type: boolean
+            balanceWarnings:
+              type: boolean
+
+    # ============================================
+    # REPORT SCHEMAS
+    # ============================================
+    UsageReport:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+        summary:
+          type: object
+          properties:
+            totalRequests:
+              type: integer
+            totalHoursRequested:
+              type: number
+              format: float
+            totalHoursApproved:
+              type: number
+              format: float
+            averageRequestDuration:
+              type: number
+              format: float
+            approvalRate:
+              type: number
+              format: float
+              description: Percentage of requests approved
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        groupedBy:
+          type: string
+          enum: [user, ptoType, month, department]
+
+    BalanceReport:
+      type: object
+      properties:
+        asOfDate:
+          type: string
+          format: date
+        summary:
+          type: object
+          properties:
+            totalEmployees:
+              type: integer
+            totalAvailableHours:
+              type: number
+              format: float
+            totalPendingHours:
+              type: number
+              format: float
+            employeesWithLowBalance:
+              type: integer
+            employeesWithExpiringBalance:
+              type: integer
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                $ref: "#/components/schemas/UserSummary"
+              balances:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Balance"
