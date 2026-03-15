@@ -105,7 +105,7 @@ export function ApprovalsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => approveMutation.mutate({ requestId: req.id, action: 'deny' })}
+                    onClick={() => approveMutation.mutate({ requestId: req.requestId, action: 'deny' })}
                     loading={approveMutation.isPending}
                     icon={<X className="h-3.5 w-3.5" />}
                     className="text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
@@ -114,7 +114,7 @@ export function ApprovalsPage() {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => approveMutation.mutate({ requestId: req.id, action: 'approve' })}
+                    onClick={() => approveMutation.mutate({ requestId: req.requestId, action: 'approve' })}
                     loading={approveMutation.isPending}
                     icon={<Check className="h-3.5 w-3.5" />}
                     className="bg-sage-600 hover:bg-sage-500 shadow-none"
@@ -186,7 +186,7 @@ export function ApprovalsPage() {
             <div className="flex justify-end gap-3">
               <Button
                 variant="outline"
-                onClick={() => approveMutation.mutate({ requestId: selectedRequest.id, action: 'deny' })}
+                onClick={() => approveMutation.mutate({ requestId: selectedRequest.requestId, action: 'deny' })}
                 loading={approveMutation.isPending}
                 icon={<X className="h-4 w-4" />}
                 className="text-rose-400 border-rose-500/30 hover:bg-rose-500/10"
@@ -194,7 +194,7 @@ export function ApprovalsPage() {
                 Deny
               </Button>
               <Button
-                onClick={() => approveMutation.mutate({ requestId: selectedRequest.id, action: 'approve' })}
+                onClick={() => approveMutation.mutate({ requestId: selectedRequest.requestId, action: 'approve' })}
                 loading={approveMutation.isPending}
                 icon={<Check className="h-4 w-4" />}
                 className="bg-sage-600 hover:bg-sage-500 shadow-none"
