@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Palmtree, Mail, Lock, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/Button';
@@ -136,6 +136,18 @@ export function LoginPage() {
               Sign In
             </Button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-slate-500">
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="text-amber-400 hover:text-amber-300 font-medium transition-colors"
+              >
+                Create one
+              </Link>
+            </p>
+          </div>
 
           {/* Demo accounts */}
           <div className="mt-8 pt-6 border-t border-slate-700/50">
