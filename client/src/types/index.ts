@@ -89,7 +89,7 @@ export interface BalanceLedgerEntry {
 
 export interface PtoRequest {
   id: string;
-  requestId?: string;
+  requestId: string;
   userId: string;
   ptoTypeId: string;
   startDate: string;
