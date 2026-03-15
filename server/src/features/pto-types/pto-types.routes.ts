@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne } from '../../config/database.js';
 import { asyncHandler } from '../../types/express.js';
+import { requireRoles } from '../../middleware/auth.js';
 import { AppError } from '../../utils/errors.js';
 import type { PtoType } from '../../types/index.js';
 
@@ -22,7 +23,7 @@ router.get('/', asyncHandler(async (_req, res) => {
  * POST /pto-types
  * Create new PTO type (admin only)
  */
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const { name, code, color, isPaid, requiresApproval } = req.body;
 
   const ptoType = await queryOne<PtoType>(
@@ -38,7 +39,7 @@ router.post('/', asyncHandler(async (req, res) => {
  * PATCH /pto-types/:id
  * Update PTO type (admin only)
  */
-router.patch('/:id', asyncHandler(async (req, res) => {
+router.patch('/:id', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const { name, code, color, isPaid, requiresApproval, isActive } = req.body;
 
   const fields: string[] = [];

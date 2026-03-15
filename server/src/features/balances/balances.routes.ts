@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, transaction } from '../../config/database.js';
 import { asyncHandler } from '../../types/express.js';
+import { requireRoles } from '../../middleware/auth.js';
 import { AppError } from '../../utils/errors.js';
 import type { PtoBalance, BalanceLedger } from '../../types/index.js';
 
@@ -77,7 +78,7 @@ router.get('/ledger', asyncHandler(async (req, res) => {
  * POST /balances/adjust
  * Manual balance adjustment (admin only)
  */
-router.post('/adjust', asyncHandler(async (req, res) => {
+router.post('/adjust', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const { userId, ptoTypeId, hours, description } = req.body;
 
   if (!userId || !ptoTypeId || hours === undefined) {

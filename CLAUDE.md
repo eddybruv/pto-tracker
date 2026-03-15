@@ -70,7 +70,9 @@ server/src/
 │   ├── balances/      # Balance tracking & ledger
 │   ├── requests/      # PTO requests
 │   ├── approvals/     # Approval workflow
-│   └── holidays/      # Holiday management
+│   ├── holidays/      # Holiday management
+│   ├── calendar/      # Team calendar view
+│   └── teams/         # Team management
 ├── middleware/        # Express middleware (auth, error handling)
 ├── config/           # Environment, database config
 ├── utils/            # Utilities (logger, errors)
@@ -139,9 +141,15 @@ JWT-based authentication with refresh tokens:
    - Applied at route level in `app.ts`
 
 4. **Roles & Permissions**:
-   - `developer` - View own PTO, submit requests, view team calendar
-   - `tech_lead` - Approve team requests, view team reports
-   - `admin` - Full access to users, policies, balances, reports
+   - `developer` - View own PTO/balances, submit/cancel own requests, view team calendar, view holidays, view PTO types, view teams
+   - `tech_lead` - All developer permissions + approve/deny team requests
+   - `admin` - Full access: manage users, PTO types, policies (CRUD + assign), holidays, teams, manual balance adjustments
+
+5. **Route-Level RBAC**:
+   - **Middleware-level** (in `app.ts`): `/users` requires `admin`, `/approvals` requires `tech_lead` or `admin`
+   - **Route-level** (via `requireRoles`): Write endpoints on `/pto-types`, `/policies`, `/holidays`, `/teams`, and `/balances/adjust` require `admin`
+   - **Read endpoints** on PTO types, policies, holidays, teams, calendar, and balances are accessible to all authenticated users
+   - **Ownership checks**: Request cancellation and updates enforce user ownership in the handler logic
 
 ### Request Lifecycle
 
@@ -242,13 +250,15 @@ All API responses follow consistent format:
 }
 ```
 
-### Mock Database
+### Database Connection
 
-During development, a mock in-memory database is used (`config/mock-db.ts`):
-- Initialized on server start
-- Contains sample users, PTO types, policies, and balances
-- Useful for testing without PostgreSQL setup
-- Replace with real database connection before production
+The server connects to PostgreSQL via the `pg` library (`config/database.ts`):
+- Connection pool with max 20 connections
+- Automatic `snake_case` → `camelCase` row transformation via `camelcase-keys`
+- `DECIMAL` columns parsed as JavaScript numbers (not strings)
+- Transaction helper (`transaction()`) provides a `TxClient` with the same transforms
+- Seed data available in `migrations/002_seed_data.sql`
+- Legacy `config/mock-db.ts` exists but is no longer used by any production code
 
 ## Important Considerations
 
@@ -333,12 +343,13 @@ If port 3000 is in use:
 
 ### Database Connection Issues
 
-Currently using mock database. When implementing real PostgreSQL:
-1. Ensure PostgreSQL is running
+1. Ensure PostgreSQL is running and accessible
 2. Create database: `createdb pto_tracker`
-3. Run migrations: `psql -d pto_tracker -f migrations/001_initial_schema.sql`
-4. Update `DATABASE_URL` in `.env`
-5. Replace mock DB calls with real query client in `config/database.ts`
+3. Run migrations in order:
+   - `psql -d pto_tracker -f migrations/001_initial_schema.sql`
+   - `psql -d pto_tracker -f migrations/002_seed_data.sql`
+4. Set `DATABASE_URL` in `.env` (e.g. `postgresql://user:password@localhost:5432/pto_tracker`)
+5. Server will verify DB connectivity on startup and fail fast if unreachable
 
 ## Documentation References
 

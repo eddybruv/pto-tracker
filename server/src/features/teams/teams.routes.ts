@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne } from '../../config/database.js';
 import { asyncHandler } from '../../types/express.js';
+import { requireRoles } from '../../middleware/auth.js';
 import { AppError } from '../../utils/errors.js';
 import type { Team } from '../../types/index.js';
 
@@ -49,7 +50,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
  * POST /teams
  * Create a new team (admin only)
  */
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const { name, code, leadId } = req.body;
 
   if (!name || !code) throw AppError.badRequest('name and code are required');
@@ -66,7 +67,7 @@ router.post('/', asyncHandler(async (req, res) => {
  * PATCH /teams/:id
  * Update team
  */
-router.patch('/:id', asyncHandler(async (req, res) => {
+router.patch('/:id', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const { name, code, leadId, isActive } = req.body;
 
   const fields: string[] = [];

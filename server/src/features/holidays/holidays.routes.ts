@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne } from '../../config/database.js';
 import { asyncHandler } from '../../types/express.js';
+import { requireRoles } from '../../middleware/auth.js';
 import { AppError } from '../../utils/errors.js';
 import type { Holiday } from '../../types/index.js';
 
@@ -32,7 +33,7 @@ router.get('/', asyncHandler(async (req, res) => {
  * POST /holidays
  * Create holiday (admin only)
  */
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const { name, date, isRecurring, recurrenceRule } = req.body;
 
   if (!name || !date) throw AppError.badRequest('name and date are required');
@@ -50,7 +51,7 @@ router.post('/', asyncHandler(async (req, res) => {
  * DELETE /holidays/:id
  * Delete holiday (admin only)
  */
-router.delete('/:id', asyncHandler(async (req, res) => {
+router.delete('/:id', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const result = await queryOne<{ id: string }>(
     'DELETE FROM holidays WHERE id = $1 RETURNING id',
     [req.params['id']]

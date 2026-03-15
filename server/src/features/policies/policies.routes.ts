@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { query, queryOne, transaction } from '../../config/database.js';
 import { asyncHandler } from '../../types/express.js';
+import { requireRoles } from '../../middleware/auth.js';
 import { AppError } from '../../utils/errors.js';
 import type { Policy } from '../../types/index.js';
 
@@ -44,7 +45,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
  * POST /policies
  * Create new policy (admin only)
  */
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const {
     name, ptoTypeId, accrualRate, accrualFrequency, maxAccrual,
     carryoverCap, carryoverExpiryMonths, allowNegative, maxNegative,
@@ -70,7 +71,7 @@ router.post('/', asyncHandler(async (req, res) => {
  * PATCH /policies/:id
  * Update policy (admin only)
  */
-router.patch('/:id', asyncHandler(async (req, res) => {
+router.patch('/:id', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const allowed = [
     'name', 'accrualRate', 'accrualFrequency', 'maxAccrual', 'carryoverCap',
     'carryoverExpiryMonths', 'allowNegative', 'maxNegative', 'probationDays',
@@ -114,7 +115,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
  * POST /policies/:id/assign
  * Assign policy to users
  */
-router.post('/:id/assign', asyncHandler(async (req, res) => {
+router.post('/:id/assign', requireRoles('admin') as never, asyncHandler(async (req, res) => {
   const policyId = req.params['id'];
   const { userIds, effectiveDate } = req.body as { userIds: string[]; effectiveDate?: string };
 
