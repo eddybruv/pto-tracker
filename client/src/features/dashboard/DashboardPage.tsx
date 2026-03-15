@@ -33,14 +33,20 @@ const statusVariant: Record<string, 'amber' | 'sage' | 'rose' | 'slate'> = {
 
 const typeIcons: Record<string, React.ReactNode> = {
   vacation: <Umbrella className="h-5 w-5" />,
+  vac: <Umbrella className="h-5 w-5" />,
   sick: <Thermometer className="h-5 w-5" />,
   personal: <UserIcon className="h-5 w-5" />,
+  per: <UserIcon className="h-5 w-5" />,
+  pers: <UserIcon className="h-5 w-5" />,
 };
 
 const typeColors: Record<string, { bg: string; border: string; text: string; icon: string }> = {
   vacation: { bg: 'bg-ocean-500/8', border: 'border-ocean-500/20', text: 'text-ocean-400', icon: 'text-ocean-400' },
+  vac: { bg: 'bg-ocean-500/8', border: 'border-ocean-500/20', text: 'text-ocean-400', icon: 'text-ocean-400' },
   sick: { bg: 'bg-sage-500/8', border: 'border-sage-500/20', text: 'text-sage-400', icon: 'text-sage-400' },
   personal: { bg: 'bg-violet-500/8', border: 'border-violet-500/20', text: 'text-violet-400', icon: 'text-violet-400' },
+  per: { bg: 'bg-violet-500/8', border: 'border-violet-500/20', text: 'text-violet-400', icon: 'text-violet-400' },
+  pers: { bg: 'bg-violet-500/8', border: 'border-violet-500/20', text: 'text-violet-400', icon: 'text-violet-400' },
 };
 
 export function DashboardPage() {

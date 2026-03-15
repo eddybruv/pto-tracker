@@ -21,8 +21,11 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const typeColorClasses: Record<string, string> = {
   vacation: 'bg-ocean-500/20 text-ocean-400 border-ocean-500/30',
+  vac: 'bg-ocean-500/20 text-ocean-400 border-ocean-500/30',
   sick: 'bg-sage-500/20 text-sage-400 border-sage-500/30',
   personal: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+  per: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+  pers: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
 };
 
 const holidayClass = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
@@ -151,7 +154,7 @@ export function CalendarPage() {
                         </div>
                       )}
                       {dayEvents.slice(0, 2).map((evt) => {
-                        const code = evt.ptoTypeCode?.toLowerCase() ?? 'vacation';
+                        const code = evt.ptoType?.code?.toLowerCase() ?? 'vacation';
                         return (
                           <div
                             key={evt.id}
