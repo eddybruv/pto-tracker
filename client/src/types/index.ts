@@ -105,6 +105,9 @@ export interface PtoRequest {
   ptoTypeName?: string;
   ptoTypeCode?: string;
   ptoTypeColor?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   user?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
 }
 

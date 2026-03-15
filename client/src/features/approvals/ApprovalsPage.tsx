@@ -78,12 +78,12 @@ export function ApprovalsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-4">
                 <div className="flex items-center gap-4">
                   <Avatar
-                    firstName={req.user?.firstName ?? 'U'}
-                    lastName={req.user?.lastName ?? 'N'}
+                    firstName={req.firstName ?? 'U'}
+                    lastName={req.lastName ?? 'N'}
                   />
                   <div>
                     <p className="text-sm font-medium text-slate-200">
-                      {req.user?.firstName} {req.user?.lastName}
+                      {req.firstName} {req.lastName}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                       <Badge variant="ocean">{req.ptoTypeName ?? 'PTO'}</Badge>
@@ -143,15 +143,15 @@ export function ApprovalsPage() {
           <div className="space-y-5">
             <div className="flex items-center gap-3">
               <Avatar
-                firstName={selectedRequest.user?.firstName ?? 'U'}
-                lastName={selectedRequest.user?.lastName ?? 'N'}
+                firstName={selectedRequest.firstName ?? 'U'}
+                lastName={selectedRequest.lastName ?? 'N'}
                 size="lg"
               />
               <div>
                 <p className="font-medium text-slate-200">
-                  {selectedRequest.user?.firstName} {selectedRequest.user?.lastName}
+                  {selectedRequest.firstName} {selectedRequest.lastName}
                 </p>
-                <p className="text-xs text-slate-500">{selectedRequest.user?.email}</p>
+                <p className="text-xs text-slate-500">{selectedRequest.email}</p>
               </div>
             </div>
 
