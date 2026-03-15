@@ -20,6 +20,8 @@ import balancesRoutes from './features/balances/balances.routes.js';
 import requestsRoutes from './features/requests/requests.routes.js';
 import approvalsRoutes from './features/approvals/approvals.routes.js';
 import holidaysRoutes from './features/holidays/holidays.routes.js';
+import calendarRoutes from './features/calendar/calendar.routes.js';
+import teamsRoutes from './features/teams/teams.routes.js';
 
 export function createApp(): Application {
   const app = express();
@@ -101,6 +103,8 @@ export function createApp(): Application {
   apiRouter.use('/requests', authenticate as never, requestsRoutes);
   apiRouter.use('/approvals', authenticate as never, requireRoles('tech_lead', 'admin') as never, approvalsRoutes);
   apiRouter.use('/holidays', authenticate as never, holidaysRoutes);
+  apiRouter.use('/calendar', authenticate as never, calendarRoutes);
+  apiRouter.use('/teams', authenticate as never, teamsRoutes);
 
   // Mount API router with version prefix
   app.use('/api/v1', apiRouter);
