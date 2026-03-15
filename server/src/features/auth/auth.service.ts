@@ -25,6 +25,18 @@ async function getUserRoles(userId: string): Promise<Role[]> {
   return rows.map(r => r.name);
 }
 
+export async function getCurrentUser(userId: string): Promise<SafeUser & { roles: Role[] }> {
+  const user = await queryOne<User>(
+    'SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL',
+    [userId]
+  );
+
+  if (!user) throw AppError.notFound('User not found');
+
+  const roles = await getUserRoles(user.id);
+  return { ...stripSensitive(user), roles };
+}
+
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const user = await queryOne<User>(
     'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL',

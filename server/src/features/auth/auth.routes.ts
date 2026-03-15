@@ -121,15 +121,16 @@ router.post(
 
 /**
  * GET /auth/me
- * Get current user info
+ * Get current user info from database
  */
 router.get(
   '/me',
   authenticate as never,
   asyncHandler(async (req, res) => {
+    const user = await authService.getCurrentUser(req.user.userId);
     res.json({
       success: true,
-      data: req.user,
+      data: user,
     });
   })
 );
