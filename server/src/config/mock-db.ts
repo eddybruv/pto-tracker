@@ -264,6 +264,18 @@ export const mockDb = {
   findUserById: (id: string) => 
     mockData.users.find(u => u.id === id && u.deletedAt === null),
 
+  createUser: (user: MockUser) => {
+    mockData.users.push(user);
+    return user;
+  },
+
+  assignRole: (userId: string, roleName: Role) => {
+    const role = mockData.roles.find(r => r.name === roleName);
+    if (role) {
+      mockData.userRoles.push({ userId, roleId: role.id });
+    }
+  },
+
   getUserRoles: (userId: string): Role[] => {
     const roleIds = mockData.userRoles
       .filter(ur => ur.userId === userId)

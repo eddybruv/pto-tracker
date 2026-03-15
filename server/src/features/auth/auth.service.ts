@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { env } from '../../config/env.js';
 import { mockDb } from '../../config/mock-db.js';
 import { AppError } from '../../utils/errors.js';
-import { Role, TokenPayload, AuthTokens, LoginResponse } from '../../types/index.js';
+import { Role, TokenPayload, AuthTokens, LoginResponse, User } from '../../types/index.js';
 
 const SALT_ROUNDS = 12;
 
@@ -40,6 +40,57 @@ export async function login(email: string, password: string): Promise<LoginRespo
     tokens,
     roles,
   };
+}
+
+export async function register(data: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  hireDate: string;
+  timezone?: string;
+}): Promise<LoginResponse> {
+  // Check if email already exists
+  const existing = mockDb.findUserByEmail(data.email.toLowerCase());
+  if (existing) {
+    throw AppError.conflict('An account with this email already exists');
+  }
+
+  const now = new Date();
+  const passwordHash = await hashPassword(data.password);
+
+  const newUser = mockDb.createUser({
+    id: uuidv4(),
+    email: data.email.toLowerCase(),
+    passwordHash,
+    _passwordHash: passwordHash,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    displayName: `${data.firstName} ${data.lastName}`,
+    avatarUrl: null,
+    managerId: null,
+    teamId: null,
+    hireDate: new Date(data.hireDate),
+    timezone: data.timezone || 'America/New_York',
+    status: 'active',
+    lastLoginAt: null,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  });
+
+  // Assign default developer role
+  mockDb.assignRole(newUser.id, 'developer');
+  const roles = mockDb.getUserRoles(newUser.id);
+
+  // Generate tokens so user is logged in immediately
+  const tokens = await generateTokens(newUser.id, newUser.email, roles);
+
+  const { _passwordHash: _, passwordHash: __, passwordResetToken: ___, passwordResetExpires: ____, ...safeUser } = newUser;
+
+  return { user: safeUser, tokens, roles };
 }
 
 export async function refreshTokens(refreshToken: string): Promise<AuthTokens> {

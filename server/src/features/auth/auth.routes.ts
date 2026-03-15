@@ -2,10 +2,39 @@ import { Router, Request, Response, NextFunction } from 'express';
 import * as authService from './auth.service.js';
 import { validate } from '../../middleware/validate.js';
 import { authenticate } from '../../middleware/auth.js';
-import { loginSchema, refreshTokenSchema } from './auth.schemas.js';
+import { loginSchema, refreshTokenSchema, registerSchema } from './auth.schemas.js';
 import { asyncHandler } from '../../types/express.js';
 
 const router = Router();
+
+/**
+ * POST /auth/register
+ * Create a new user account
+ */
+router.post(
+  '/register',
+  validate({ body: registerSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email, password, firstName, lastName, hireDate, timezone } = req.body;
+      const result = await authService.register({
+        email,
+        password,
+        firstName,
+        lastName,
+        hireDate,
+        timezone,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 /**
  * POST /auth/login
