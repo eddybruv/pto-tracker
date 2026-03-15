@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { env } from '../../config/env.js';
-import { query, queryOne, transaction } from '../../config/database.js';
+import { query, queryOne, transaction, TxClient } from '../../config/database.js';
 import { AppError } from '../../utils/errors.js';
 import { Role, TokenPayload, AuthTokens, LoginResponse, User } from '../../types/index.js';
 
@@ -102,7 +102,7 @@ export async function register(data: {
     );
 
     const roles = ['developer'] as Role[];
-    const tokens = await generateTokens(user.id, user.email, roles);
+    const tokens = await generateTokens(user.id, user.email, roles, tx);
 
     return {
       user: stripSensitive(user),
@@ -167,7 +167,8 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 async function generateTokens(
   userId: string,
   email: string,
-  roles: Role[]
+  roles: Role[],
+  tx?: TxClient
 ): Promise<AuthTokens> {
   const payload: TokenPayload = { userId, email, roles };
 
@@ -179,7 +180,8 @@ async function generateTokens(
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
-  await query(
+  const execQuery = tx ? tx.query : query;
+  await execQuery(
     'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
     [userId, refreshToken, expiresAt]
   );
