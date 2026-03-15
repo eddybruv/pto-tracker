@@ -54,6 +54,18 @@ export function createApp(): Application {
   // ============ Request Logging ============
   app.use(pinoHttp({
     logger,
+    serializers: {
+      req: (req) => ({
+        method: req.method,
+        url: req.url,
+        params: req.params, 
+        query: req.query,
+        ...(req.body ? { body: req.body } : {}),
+      }),
+      res: (res) => ({
+        statusCode: res.statusCode,
+      }),
+    },
     customLogLevel: (_req, res, err) => {
       if (res.statusCode >= 500 || err) return 'error';
       if (res.statusCode >= 400) return 'warn';
