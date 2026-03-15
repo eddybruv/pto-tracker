@@ -101,7 +101,7 @@ export function BalanceHistoryPage() {
                       {formatDate(entry.effectiveDate)}
                     </td>
                     <td className="px-5 py-3">
-                      <span className="text-slate-300 text-xs">{entry.ptoType?.name ?? '—'}</span>
+                      <span className="text-slate-300 text-xs">{entry.ptoTypeName ?? '—'}</span>
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">

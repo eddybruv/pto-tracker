@@ -141,7 +141,7 @@ function RequestRow({
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-0.5">
               <span className="text-sm font-medium text-slate-200 truncate">
-                {request.ptoType?.name ?? 'PTO'}
+                {request.ptoTypeName ?? 'PTO'}
               </span>
               <Badge variant={statusVariant[request.status] ?? 'slate'} dot>
                 {capitalizeFirst(request.status)}

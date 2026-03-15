@@ -86,7 +86,7 @@ export function ApprovalsPage() {
                       {req.user?.firstName} {req.user?.lastName}
                     </p>
                     <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                      <Badge variant="ocean">{req.ptoType?.name ?? 'PTO'}</Badge>
+                      <Badge variant="ocean">{req.ptoTypeName ?? 'PTO'}</Badge>
                       <span>{formatDateRange(req.startDate, req.endDate)}</span>
                       <span className="font-display">{formatHours(req.totalHours)}</span>
                     </div>
@@ -158,7 +158,7 @@ export function ApprovalsPage() {
             <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-slate-800/50 border border-slate-700/30">
               <div>
                 <p className="text-[10px] font-display tracking-wider uppercase text-slate-500 mb-0.5">Type</p>
-                <p className="text-sm text-slate-200">{selectedRequest.ptoType?.name ?? 'PTO'}</p>
+                <p className="text-sm text-slate-200">{selectedRequest.ptoTypeName ?? 'PTO'}</p>
               </div>
               <div>
                 <p className="text-[10px] font-display tracking-wider uppercase text-slate-500 mb-0.5">Hours</p>

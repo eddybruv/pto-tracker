@@ -67,7 +67,9 @@ export interface PtoBalance {
   accruedYtd: number;
   carryoverHours: number;
   carryoverExpires: string | null;
-  ptoType?: PtoType;
+  ptoTypeName?: string;
+  ptoTypeCode?: string;
+  ptoTypeColor?: string;
 }
 
 export interface BalanceLedgerEntry {
@@ -82,7 +84,7 @@ export interface BalanceLedgerEntry {
   adjustedBy: string | null;
   description: string;
   createdAt: string;
-  ptoType?: PtoType;
+  ptoTypeName?: string;
 }
 
 export interface PtoRequest {
@@ -100,7 +102,9 @@ export interface PtoRequest {
   cancelledBy: string | null;
   createdAt: string;
   updatedAt: string;
-  ptoType?: PtoType;
+  ptoTypeName?: string;
+  ptoTypeCode?: string;
+  ptoTypeColor?: string;
   user?: Pick<User, 'id' | 'firstName' | 'lastName' | 'email'>;
 }
 

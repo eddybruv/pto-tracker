@@ -99,7 +99,7 @@ export function DashboardPage() {
       {/* Balance Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {(balances ?? []).map((balance, idx) => {
-          const code = balance.ptoType?.code?.toLowerCase() ?? 'vacation';
+          const code = balance.ptoTypeCode?.toLowerCase() ?? 'vacation';
           const colors = typeColors[code] ?? typeColors.vacation;
           const icon = typeIcons[code] ?? typeIcons.vacation;
           const totalHours = balance.availableHours + balance.pendingHours + balance.usedYtd;
@@ -115,7 +115,7 @@ export function DashboardPage() {
                   <span className={colors.icon}>{icon}</span>
                 </div>
                 <span className="text-[10px] font-display tracking-wider uppercase text-slate-500">
-                  {balance.ptoType?.name ?? code}
+                  {balance.ptoTypeName ?? code}
                 </span>
               </div>
               <div className="mb-3">
@@ -216,7 +216,7 @@ export function DashboardPage() {
                 {requests.map((req) => (
                   <tr key={req.id} className="border-b border-slate-700/30 hover:bg-slate-800/50 transition-colors">
                     <td className="px-5 py-3">
-                      <span className="text-slate-200">{req.ptoType?.name ?? 'PTO'}</span>
+                      <span className="text-slate-200">{req.ptoTypeName ?? 'PTO'}</span>
                     </td>
                     <td className="px-5 py-3 text-slate-400 whitespace-nowrap">
                       {formatDateRange(req.startDate, req.endDate)}
