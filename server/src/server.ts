@@ -1,12 +1,14 @@
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
-import { initMockDb } from './config/mock-db.js';
+import { healthCheck, pool } from './config/database.js';
 
-// Initialize mock database and start server
 const startServer = async () => {
-  // Initialize mock data
-  await initMockDb();
+  const dbConnected = await healthCheck();
+  if (!dbConnected) {
+    throw new Error('Cannot connect to PostgreSQL — check DATABASE_URL');
+  }
+  logger.info('Database connected');
 
   const app = createApp();
 
@@ -21,12 +23,13 @@ const startServer = async () => {
   const shutdown = async (signal: string): Promise<void> => {
     logger.info(`${signal} received, shutting down gracefully...`);
 
-    server.close(() => {
+    server.close(async () => {
       logger.info('HTTP server closed');
+      await pool.end();
+      logger.info('Database pool closed');
       process.exit(0);
     });
 
-    // Force close after 10 seconds
     setTimeout(() => {
       logger.error('Forced shutdown after timeout');
       process.exit(1);

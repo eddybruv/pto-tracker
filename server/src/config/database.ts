@@ -1,8 +1,14 @@
-import { Pool, PoolConfig, PoolClient } from 'pg';
+import pg from 'pg';
+import camelcaseKeys from 'camelcase-keys';
 import { env } from './env.js';
 import { logger } from '../utils/logger.js';
 
-const poolConfig: PoolConfig = {
+const { Pool } = pg;
+
+// Parse DECIMAL/NUMERIC columns as numbers instead of strings
+pg.types.setTypeParser(1700, parseFloat);
+
+const poolConfig: pg.PoolConfig = {
   connectionString: env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
@@ -19,18 +25,22 @@ pool.on('connect', () => {
   logger.debug('New database connection established');
 });
 
+function toCamel<T>(rows: Record<string, unknown>[]): T[] {
+  return camelcaseKeys(rows, { deep: true }) as T[];
+}
+
 export async function query<T>(text: string, params?: unknown[]): Promise<T[]> {
   const start = Date.now();
   const result = await pool.query(text, params);
   const duration = Date.now() - start;
-  
+
   logger.debug({
     query: text,
     duration,
     rows: result.rowCount,
   }, 'Executed query');
-  
-  return result.rows as T[];
+
+  return toCamel<T>(result.rows);
 }
 
 export async function queryOne<T>(text: string, params?: unknown[]): Promise<T | null> {
@@ -38,13 +48,31 @@ export async function queryOne<T>(text: string, params?: unknown[]): Promise<T |
   return rows[0] ?? null;
 }
 
+export interface TxClient {
+  query: <T>(text: string, params?: unknown[]) => Promise<T[]>;
+  queryOne: <T>(text: string, params?: unknown[]) => Promise<T | null>;
+}
+
 export async function transaction<T>(
-  callback: (client: PoolClient) => Promise<T>
+  callback: (client: TxClient) => Promise<T>
 ): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const result = await callback(client);
+
+    const txClient: TxClient = {
+      query: async <T>(text: string, params?: unknown[]): Promise<T[]> => {
+        const result = await client.query(text, params);
+        return toCamel<T>(result.rows);
+      },
+      queryOne: async <T>(text: string, params?: unknown[]): Promise<T | null> => {
+        const result = await client.query(text, params);
+        const rows = toCamel<T>(result.rows);
+        return rows[0] ?? null;
+      },
+    };
+
+    const result = await callback(txClient);
     await client.query('COMMIT');
     return result;
   } catch (error) {

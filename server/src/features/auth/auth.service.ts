@@ -2,15 +2,34 @@ import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { env } from '../../config/env.js';
-import { mockDb } from '../../config/mock-db.js';
+import { query, queryOne, transaction } from '../../config/database.js';
 import { AppError } from '../../utils/errors.js';
 import { Role, TokenPayload, AuthTokens, LoginResponse, User } from '../../types/index.js';
 
 const SALT_ROUNDS = 12;
 
+type SafeUser = Omit<User, 'passwordHash' | 'passwordResetToken' | 'passwordResetExpires'>;
+
+function stripSensitive(user: User): SafeUser {
+  const { passwordHash: _, passwordResetToken: __, passwordResetExpires: ___, ...safe } = user;
+  return safe;
+}
+
+async function getUserRoles(userId: string): Promise<Role[]> {
+  const rows = await query<{ name: Role }>(
+    `SELECT r.name FROM roles r
+     JOIN user_roles ur ON ur.role_id = r.id
+     WHERE ur.user_id = $1`,
+    [userId]
+  );
+  return rows.map(r => r.name);
+}
+
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  // Find user using mock db
-  const user = mockDb.findUserByEmail(email.toLowerCase());
+  const user = await queryOne<User>(
+    'SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL',
+    [email.toLowerCase()]
+  );
 
   if (!user) {
     throw AppError.unauthorized('Invalid email or password');
@@ -20,23 +39,16 @@ export async function login(email: string, password: string): Promise<LoginRespo
     throw AppError.unauthorized('Account is not active');
   }
 
-  // Verify password
-  const isValid = await bcrypt.compare(password, user._passwordHash);
+  const isValid = await bcrypt.compare(password, user.passwordHash);
   if (!isValid) {
     throw AppError.unauthorized('Invalid email or password');
   }
 
-  // Get user roles
-  const roles = mockDb.getUserRoles(user.id);
-
-  // Generate tokens
+  const roles = await getUserRoles(user.id);
   const tokens = await generateTokens(user.id, user.email, roles);
 
-  // Return user without sensitive fields
-  const { _passwordHash: _, passwordHash: __, passwordResetToken: ___, passwordResetExpires: ____, ...safeUser } = user;
-
   return {
-    user: safeUser,
+    user: stripSensitive(user),
     tokens,
     roles,
   };
@@ -50,79 +62,86 @@ export async function register(data: {
   hireDate: string;
   timezone?: string;
 }): Promise<LoginResponse> {
-  // Check if email already exists
-  const existing = mockDb.findUserByEmail(data.email.toLowerCase());
+  const existing = await queryOne<{ id: string }>(
+    'SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL',
+    [data.email.toLowerCase()]
+  );
+
   if (existing) {
     throw AppError.conflict('An account with this email already exists');
   }
 
-  const now = new Date();
   const passwordHash = await hashPassword(data.password);
 
-  const newUser = mockDb.createUser({
-    id: uuidv4(),
-    email: data.email.toLowerCase(),
-    passwordHash,
-    _passwordHash: passwordHash,
-    firstName: data.firstName,
-    lastName: data.lastName,
-    displayName: `${data.firstName} ${data.lastName}`,
-    avatarUrl: null,
-    managerId: null,
-    teamId: null,
-    hireDate: new Date(data.hireDate),
-    timezone: data.timezone || 'America/New_York',
-    status: 'active',
-    lastLoginAt: null,
-    passwordResetToken: null,
-    passwordResetExpires: null,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null,
+  return transaction(async (tx) => {
+    const user = await tx.queryOne<User>(
+      `INSERT INTO users (email, password_hash, first_name, last_name, hire_date, timezone, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active')
+       RETURNING *`,
+      [data.email.toLowerCase(), passwordHash, data.firstName, data.lastName, data.hireDate, data.timezone || 'America/New_York']
+    );
+
+    if (!user) throw AppError.internal('Failed to create user');
+
+    await tx.query(
+      `INSERT INTO user_roles (user_id, role_id)
+       SELECT $1, id FROM roles WHERE name = 'developer'`,
+      [user.id]
+    );
+
+    const roles = ['developer'] as Role[];
+    const tokens = await generateTokens(user.id, user.email, roles);
+
+    return {
+      user: stripSensitive(user),
+      tokens,
+      roles,
+    };
   });
-
-  // Assign default developer role
-  mockDb.assignRole(newUser.id, 'developer');
-  const roles = mockDb.getUserRoles(newUser.id);
-
-  // Generate tokens so user is logged in immediately
-  const tokens = await generateTokens(newUser.id, newUser.email, roles);
-
-  const { _passwordHash: _, passwordHash: __, passwordResetToken: ___, passwordResetExpires: ____, ...safeUser } = newUser;
-
-  return { user: safeUser, tokens, roles };
 }
 
 export async function refreshTokens(refreshToken: string): Promise<AuthTokens> {
-  // Find and validate refresh token using mock db
-  const tokenRecord = mockDb.findRefreshToken(refreshToken);
+  const tokenRecord = await queryOne<{ id: string; userId: string }>(
+    `SELECT id, user_id FROM refresh_tokens
+     WHERE token = $1 AND expires_at > NOW() AND revoked_at IS NULL`,
+    [refreshToken]
+  );
 
   if (!tokenRecord) {
     throw AppError.unauthorized('Invalid or expired refresh token', 'INVALID_REFRESH_TOKEN');
   }
 
-  // Get user and roles
-  const user = mockDb.findUserById(tokenRecord.user_id);
+  const user = await queryOne<User>(
+    'SELECT * FROM users WHERE id = $1 AND deleted_at IS NULL',
+    [tokenRecord.userId]
+  );
 
   if (!user || user.status !== 'active') {
     throw AppError.unauthorized('User not found or inactive');
   }
 
-  const roles = mockDb.getUserRoles(user.id);
+  // Revoke old token
+  await query(
+    'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1',
+    [refreshToken]
+  );
 
-  // Revoke old refresh token
-  mockDb.deleteRefreshToken(refreshToken);
-
-  // Generate new tokens
+  const roles = await getUserRoles(user.id);
   return generateTokens(user.id, user.email, roles);
 }
 
 export async function logout(refreshToken: string): Promise<void> {
-  mockDb.deleteRefreshToken(refreshToken);
+  await query(
+    'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token = $1',
+    [refreshToken]
+  );
 }
 
 export async function logoutAll(userId: string): Promise<void> {
-  mockDb.deleteUserRefreshTokens(userId);
+  await query(
+    'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+    [userId]
+  );
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -146,14 +165,16 @@ async function generateTokens(
 
   const refreshToken = uuidv4();
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+  expiresAt.setDate(expiresAt.getDate() + 7);
 
-  // Store refresh token in mock db
-  mockDb.saveRefreshToken(userId, refreshToken, expiresAt);
+  await query(
+    'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+    [userId, refreshToken, expiresAt]
+  );
 
   return {
     accessToken,
     refreshToken,
-    expiresIn: 900, // 15 minutes in seconds
+    expiresIn: 900,
   };
 }
