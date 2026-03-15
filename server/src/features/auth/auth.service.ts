@@ -101,6 +101,32 @@ export async function register(data: {
       [user.id]
     );
 
+    // Assign all active policies and create default balances
+    // 20 vacation days (160h), 7 sick days (56h), 7 personal days (56h)
+    const defaultHours: Record<string, number> = { VAC: 160, SICK: 56, PERS: 56 };
+
+    const policies = await tx.query<{ id: string; ptoTypeId: string; code: string }>(
+      `SELECT p.id, p.pto_type_id, pt.code
+       FROM policies p
+       JOIN pto_types pt ON pt.id = p.pto_type_id
+       WHERE p.is_active = true AND pt.is_active = true`
+    );
+
+    for (const policy of policies) {
+      await tx.query(
+        `INSERT INTO policy_assignments (user_id, policy_id, effective_date)
+         VALUES ($1, $2, $3)`,
+        [user.id, policy.id, data.hireDate]
+      );
+
+      const hours = defaultHours[policy.code] ?? 0;
+      await tx.query(
+        `INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_hours, pending_hours, used_ytd, accrued_ytd, carryover_hours)
+         VALUES ($1, $2, $3, $4, 0, 0, $4, 0)`,
+        [user.id, policy.ptoTypeId, policy.id, hours]
+      );
+    }
+
     const roles = ['developer'] as Role[];
     const tokens = await generateTokens(user.id, user.email, roles, tx);
 
