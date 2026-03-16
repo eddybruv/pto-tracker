@@ -8,7 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { RequestPtoModal } from './RequestPtoModal';
-import { cn, formatHours, capitalizeFirst } from '@/lib/utils';
+import { cn, formatDays, capitalizeFirst } from '@/lib/utils';
 import { formatDateRange, formatDate } from '@/lib/date-utils';
 import { useUIStore } from '@/stores/ui.store';
 import api from '@/lib/api';
@@ -149,7 +149,7 @@ function RequestRow({
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-500">
               <span>{formatDateRange(request.startDate, request.endDate)}</span>
-              <span className="font-display">{formatHours(request.totalHours)}</span>
+              <span className="font-display">{formatDays(request.totalDays)}</span>
             </div>
           </div>
         </div>

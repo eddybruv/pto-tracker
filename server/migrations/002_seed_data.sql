@@ -47,19 +47,19 @@ INSERT INTO user_roles (user_id, role_id)
 
 -- ============ Policies ============
 
-INSERT INTO policies (id, name, pto_type_id, accrual_rate, accrual_frequency, max_accrual, carryover_cap, carryover_expiry_months, probation_days, min_increment_hours) VALUES
-    -- Vacation: 10 hrs/month, max 200, carryover 40 hrs
+INSERT INTO policies (id, name, pto_type_id, accrual_rate, accrual_frequency, max_accrual, carryover_cap, carryover_expiry_months, probation_days, min_increment_days) VALUES
+    -- Vacation: 1.67 days/month (~20/yr), max 25, carryover 5 days
     ('c1000000-0000-0000-0000-000000000001', 'Standard Vacation',
      (SELECT id FROM pto_types WHERE code = 'VAC'),
-     10, 'monthly', 200, 40, 3, 90, 4),
-    -- Sick: 6.67 hrs/month, max 80, no carryover
+     1.67, 'monthly', 25, 5, 3, 90, 1),
+    -- Sick: 0.58 days/month (~7/yr), max 10, no carryover
     ('c1000000-0000-0000-0000-000000000002', 'Standard Sick Leave',
      (SELECT id FROM pto_types WHERE code = 'SICK'),
-     6.67, 'monthly', 80, 0, NULL, 0, 1),
-    -- Personal: 3.33 hrs/month, max 40, no carryover
+     0.58, 'monthly', 10, 0, NULL, 0, 1),
+    -- Personal: 0.58 days/month (~7/yr), max 10, no carryover
     ('c1000000-0000-0000-0000-000000000003', 'Standard Personal',
      (SELECT id FROM pto_types WHERE code = 'PERS'),
-     3.33, 'monthly', 40, 0, NULL, 0, 4);
+     0.58, 'monthly', 10, 0, NULL, 0, 1);
 
 -- ============ Policy Assignments ============
 
@@ -72,48 +72,48 @@ INSERT INTO policy_assignments (user_id, policy_id, effective_date)
 -- ============ PTO Balances ============
 
 -- Alice (hired 2024-01-15) — ~14 months accrued by Mar 2025
-INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_hours, pending_hours, used_ytd, accrued_ytd, carryover_hours) VALUES
-    ('b1000000-0000-0000-0000-000000000001', (SELECT id FROM pto_types WHERE code = 'VAC'), 'c1000000-0000-0000-0000-000000000001', 96, 0, 24, 120, 0),
-    ('b1000000-0000-0000-0000-000000000001', (SELECT id FROM pto_types WHERE code = 'SICK'), 'c1000000-0000-0000-0000-000000000002', 73.33, 0, 0, 73.33, 0),
-    ('b1000000-0000-0000-0000-000000000001', (SELECT id FROM pto_types WHERE code = 'PERS'), 'c1000000-0000-0000-0000-000000000003', 33.30, 0, 8, 40, 0);
+INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_days, pending_days, used_ytd, accrued_ytd, carryover_days) VALUES
+    ('b1000000-0000-0000-0000-000000000001', (SELECT id FROM pto_types WHERE code = 'VAC'), 'c1000000-0000-0000-0000-000000000001', 12, 0, 3, 15, 0),
+    ('b1000000-0000-0000-0000-000000000001', (SELECT id FROM pto_types WHERE code = 'SICK'), 'c1000000-0000-0000-0000-000000000002', 7, 0, 0, 7, 0),
+    ('b1000000-0000-0000-0000-000000000001', (SELECT id FROM pto_types WHERE code = 'PERS'), 'c1000000-0000-0000-0000-000000000003', 6, 0, 1, 7, 0);
 
 -- Bob (hired 2024-03-01) — ~12 months accrued
-INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_hours, pending_hours, used_ytd, accrued_ytd, carryover_hours) VALUES
-    ('b1000000-0000-0000-0000-000000000002', (SELECT id FROM pto_types WHERE code = 'VAC'), 'c1000000-0000-0000-0000-000000000001', 80, 16, 16, 100, 0),
-    ('b1000000-0000-0000-0000-000000000002', (SELECT id FROM pto_types WHERE code = 'SICK'), 'c1000000-0000-0000-0000-000000000002', 60, 0, 6.67, 66.70, 0),
-    ('b1000000-0000-0000-0000-000000000002', (SELECT id FROM pto_types WHERE code = 'PERS'), 'c1000000-0000-0000-0000-000000000003', 26.64, 0, 0, 26.64, 0);
+INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_days, pending_days, used_ytd, accrued_ytd, carryover_days) VALUES
+    ('b1000000-0000-0000-0000-000000000002', (SELECT id FROM pto_types WHERE code = 'VAC'), 'c1000000-0000-0000-0000-000000000001', 10, 2, 2, 14, 0),
+    ('b1000000-0000-0000-0000-000000000002', (SELECT id FROM pto_types WHERE code = 'SICK'), 'c1000000-0000-0000-0000-000000000002', 7, 0, 0, 7, 0),
+    ('b1000000-0000-0000-0000-000000000002', (SELECT id FROM pto_types WHERE code = 'PERS'), 'c1000000-0000-0000-0000-000000000003', 5, 0, 0, 5, 0);
 
 -- Clara (hired 2024-06-10) — ~9 months accrued
-INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_hours, pending_hours, used_ytd, accrued_ytd, carryover_hours) VALUES
-    ('b1000000-0000-0000-0000-000000000003', (SELECT id FROM pto_types WHERE code = 'VAC'), 'c1000000-0000-0000-0000-000000000001', 64, 8, 8, 80, 0),
-    ('b1000000-0000-0000-0000-000000000003', (SELECT id FROM pto_types WHERE code = 'SICK'), 'c1000000-0000-0000-0000-000000000002', 53.36, 0, 0, 53.36, 0),
-    ('b1000000-0000-0000-0000-000000000003', (SELECT id FROM pto_types WHERE code = 'PERS'), 'c1000000-0000-0000-0000-000000000003', 23.31, 0, 0, 23.31, 0);
+INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_days, pending_days, used_ytd, accrued_ytd, carryover_days) VALUES
+    ('b1000000-0000-0000-0000-000000000003', (SELECT id FROM pto_types WHERE code = 'VAC'), 'c1000000-0000-0000-0000-000000000001', 8, 1, 1, 10, 0),
+    ('b1000000-0000-0000-0000-000000000003', (SELECT id FROM pto_types WHERE code = 'SICK'), 'c1000000-0000-0000-0000-000000000002', 5, 0, 0, 5, 0),
+    ('b1000000-0000-0000-0000-000000000003', (SELECT id FROM pto_types WHERE code = 'PERS'), 'c1000000-0000-0000-0000-000000000003', 4, 0, 0, 4, 0);
 
 -- ============ Sample PTO Requests ============
 
 -- Clara: approved vacation (past)
-INSERT INTO pto_requests (id, user_id, pto_type_id, start_date, end_date, total_hours, notes, status) VALUES
+INSERT INTO pto_requests (id, user_id, pto_type_id, start_date, end_date, total_days, notes, status) VALUES
     ('d1000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000003',
      (SELECT id FROM pto_types WHERE code = 'VAC'),
-     '2026-01-05', '2026-01-06', 8, 'Family visit', 'approved');
+     '2026-01-05', '2026-01-06', 1, 'Family visit', 'approved');
 
 -- Bob: pending vacation request
-INSERT INTO pto_requests (id, user_id, pto_type_id, start_date, end_date, total_hours, notes, status) VALUES
+INSERT INTO pto_requests (id, user_id, pto_type_id, start_date, end_date, total_days, notes, status) VALUES
     ('d1000000-0000-0000-0000-000000000002', 'b1000000-0000-0000-0000-000000000002',
      (SELECT id FROM pto_types WHERE code = 'VAC'),
-     '2026-04-13', '2026-04-14', 16, 'Spring break trip', 'pending');
+     '2026-04-13', '2026-04-14', 2, 'Spring break trip', 'pending');
 
 -- Clara: pending vacation request
-INSERT INTO pto_requests (id, user_id, pto_type_id, start_date, end_date, total_hours, notes, status) VALUES
+INSERT INTO pto_requests (id, user_id, pto_type_id, start_date, end_date, total_days, notes, status) VALUES
     ('d1000000-0000-0000-0000-000000000003', 'b1000000-0000-0000-0000-000000000003',
      (SELECT id FROM pto_types WHERE code = 'VAC'),
-     '2026-06-22', '2026-06-23', 8, 'Moving day', 'pending');
+     '2026-06-22', '2026-06-23', 1, 'Moving day', 'pending');
 
 -- Alice: approved personal day (past)
-INSERT INTO pto_requests (id, user_id, pto_type_id, start_date, end_date, total_hours, notes, status) VALUES
+INSERT INTO pto_requests (id, user_id, pto_type_id, start_date, end_date, total_days, notes, status) VALUES
     ('d1000000-0000-0000-0000-000000000004', 'b1000000-0000-0000-0000-000000000001',
      (SELECT id FROM pto_types WHERE code = 'PERS'),
-     '2026-02-20', '2026-02-20', 8, 'Appointment', 'approved');
+     '2026-02-20', '2026-02-20', 1, 'Appointment', 'approved');
 
 -- ============ Approvals ============
 

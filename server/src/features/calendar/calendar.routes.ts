@@ -27,7 +27,7 @@ router.get('/team', asyncHandler(async (req, res) => {
   const rows = await query<Record<string, unknown>>(
     `SELECT
        pr.id, pr.user_id, pr.pto_type_id, pr.start_date, pr.end_date,
-       pr.is_half_day_start, pr.is_half_day_end, pr.total_hours,
+       pr.is_half_day_start, pr.is_half_day_end, pr.total_days,
        pr.notes, pr.status, pr.created_at, pr.updated_at,
        u.id as "u_id", u.first_name as "u_first_name", u.last_name as "u_last_name", u.email as "u_email",
        pt.id as "pt_id", pt.name as "pt_name", pt.code as "pt_code", pt.color as "pt_color"
@@ -50,7 +50,7 @@ router.get('/team', asyncHandler(async (req, res) => {
     endDate: r.endDate,
     isHalfDayStart: r.isHalfDayStart,
     isHalfDayEnd: r.isHalfDayEnd,
-    totalHours: r.totalHours,
+    totalDays: r.totalDays,
     notes: r.notes,
     status: r.status,
     createdAt: r.createdAt,

@@ -79,10 +79,10 @@ router.get('/ledger', asyncHandler(async (req, res) => {
  * Manual balance adjustment (admin only)
  */
 router.post('/adjust', requireRoles('admin') as never, asyncHandler(async (req, res) => {
-  const { userId, ptoTypeId, hours, description } = req.body;
+  const { userId, ptoTypeId, days, description } = req.body;
 
-  if (!userId || !ptoTypeId || hours === undefined) {
-    throw AppError.badRequest('userId, ptoTypeId, and hours are required');
+  if (!userId || !ptoTypeId || days === undefined) {
+    throw AppError.badRequest('userId, ptoTypeId, and days are required');
   }
 
   const result = await transaction(async (tx) => {
@@ -93,18 +93,18 @@ router.post('/adjust', requireRoles('admin') as never, asyncHandler(async (req, 
 
     if (!balance) throw AppError.notFound('Balance not found for this user and PTO type');
 
-    const newAvailable = balance.availableHours + hours;
+    const newAvailable = balance.availableDays + days;
 
     await tx.query(
-      `UPDATE pto_balances SET available_hours = $1 WHERE id = $2`,
+      `UPDATE pto_balances SET available_days = $1 WHERE id = $2`,
       [newAvailable, balance.id]
     );
 
     const ledger = await tx.queryOne<BalanceLedger>(
-      `INSERT INTO balance_ledger (user_id, pto_type_id, transaction_type, hours, running_balance, effective_date, adjusted_by, description)
+      `INSERT INTO balance_ledger (user_id, pto_type_id, transaction_type, days, running_balance, effective_date, adjusted_by, description)
        VALUES ($1, $2, 'adjustment', $3, $4, CURRENT_DATE, $5, $6)
        RETURNING *`,
-      [userId, ptoTypeId, hours, newAvailable, req.user.userId, description || 'Manual adjustment']
+      [userId, ptoTypeId, days, newAvailable, req.user.userId, description || 'Manual adjustment']
     );
 
     return ledger;

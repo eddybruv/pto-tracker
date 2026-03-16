@@ -17,9 +17,9 @@ router.get('/', asyncHandler(async (req, res) => {
   const status = (req.query['status'] as string) || 'pending';
 
   const [approvals, countResult] = await Promise.all([
-    query<Approval & { firstName: string; lastName: string; ptoTypeName: string; ptoTypeColor: string; startDate: Date; endDate: Date; totalHours: number; requestNotes: string | null }>(
+    query<Approval & { firstName: string; lastName: string; ptoTypeName: string; ptoTypeColor: string; startDate: Date; endDate: Date; totalDays: number; requestNotes: string | null }>(
       `SELECT a.*, u.first_name, u.last_name, pt.name as pto_type_name, pt.color as pto_type_color,
-              pr.start_date, pr.end_date, pr.total_hours, pr.notes as request_notes
+              pr.start_date, pr.end_date, pr.total_days, pr.notes as request_notes
        FROM approvals a
        JOIN pto_requests pr ON pr.id = a.request_id
        JOIN users u ON u.id = pr.user_id
@@ -128,34 +128,34 @@ async function processDecision(
     if (decision === 'approved') {
       await tx.query(
         `UPDATE pto_balances SET
-           pending_hours = pending_hours - $1,
-           available_hours = available_hours - $1,
+           pending_days = pending_days - $1,
+           available_days = available_days - $1,
            used_ytd = used_ytd + $1
          WHERE user_id = $2 AND pto_type_id = $3`,
-        [request.totalHours, request.userId, request.ptoTypeId]
+        [request.totalDays, request.userId, request.ptoTypeId]
       );
     } else {
       // Denied — reverse pending
       await tx.query(
-        'UPDATE pto_balances SET pending_hours = pending_hours - $1 WHERE user_id = $2 AND pto_type_id = $3',
-        [request.totalHours, request.userId, request.ptoTypeId]
+        'UPDATE pto_balances SET pending_days = pending_days - $1 WHERE user_id = $2 AND pto_type_id = $3',
+        [request.totalDays, request.userId, request.ptoTypeId]
       );
     }
 
     // Ledger entry
     const balance = await tx.queryOne<PtoBalance>(
-      'SELECT available_hours FROM pto_balances WHERE user_id = $1 AND pto_type_id = $2',
+      'SELECT available_days FROM pto_balances WHERE user_id = $1 AND pto_type_id = $2',
       [request.userId, request.ptoTypeId]
     );
 
     const txnType = decision === 'approved' ? 'debit' : 'adjustment';
     const description = decision === 'approved' ? 'Request approved' : 'Request denied — balance restored';
-    const hours = decision === 'approved' ? -request.totalHours : request.totalHours;
+    const ledgerDays = decision === 'approved' ? -request.totalDays : request.totalDays;
 
     await tx.query(
-      `INSERT INTO balance_ledger (user_id, pto_type_id, transaction_type, hours, running_balance, effective_date, request_id, description)
+      `INSERT INTO balance_ledger (user_id, pto_type_id, transaction_type, days, running_balance, effective_date, request_id, description)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [request.userId, request.ptoTypeId, txnType, hours, balance?.availableHours ?? 0, request.startDate, requestId, description]
+      [request.userId, request.ptoTypeId, txnType, ledgerDays, balance?.availableDays ?? 0, request.startDate, requestId, description]
     );
 
     return { requestId, status: decision, comment: comment || null };

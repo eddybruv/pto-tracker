@@ -59,7 +59,7 @@ describe('Balances Routes', () => {
         .send({
           userId: 'test-user-id',
           ptoTypeId: 'test-pto-type-id',
-          hours: 8,
+          days: 1,
           reason: 'Manual correction',
         });
 
@@ -72,7 +72,7 @@ describe('Balances Routes', () => {
         .post('/api/v1/balances/adjust')
         .send({
           userId: 'test-user-id',
-          hours: 8,
+          days: 1,
           reason: 'Manual correction',
         });
 

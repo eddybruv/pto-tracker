@@ -90,15 +90,15 @@ export function PoliciesPage() {
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <span className="text-slate-500">Accrual Rate</span>
-                  <p className="font-display text-slate-300 mt-0.5">{policy.accrualRate}h / {policy.accrualFrequency}</p>
+                  <p className="font-display text-slate-300 mt-0.5">{policy.accrualRate}d / {policy.accrualFrequency}</p>
                 </div>
                 <div>
                   <span className="text-slate-500">Max Accrual</span>
-                  <p className="font-display text-slate-300 mt-0.5">{policy.maxAccrual ? `${policy.maxAccrual}h` : 'Unlimited'}</p>
+                  <p className="font-display text-slate-300 mt-0.5">{policy.maxAccrual ? `${policy.maxAccrual}d` : 'Unlimited'}</p>
                 </div>
                 <div>
                   <span className="text-slate-500">Carryover Cap</span>
-                  <p className="font-display text-slate-300 mt-0.5">{policy.carryoverCap ? `${policy.carryoverCap}h` : 'None'}</p>
+                  <p className="font-display text-slate-300 mt-0.5">{policy.carryoverCap ? `${policy.carryoverCap}d` : 'None'}</p>
                 </div>
                 <div>
                   <span className="text-slate-500">Probation</span>
@@ -122,7 +122,7 @@ export function PoliciesPage() {
 function PolicyFormModal({ open, onClose, policy }: { open: boolean; onClose: () => void; policy: Policy | null }) {
   const [name, setName] = useState(policy?.name ?? '');
   const [ptoTypeId, setPtoTypeId] = useState(policy?.ptoTypeId ?? '');
-  const [accrualRate, setAccrualRate] = useState(String(policy?.accrualRate ?? 8));
+  const [accrualRate, setAccrualRate] = useState(String(policy?.accrualRate ?? 1));
   const [accrualFrequency, setAccrualFrequency] = useState<string>(policy?.accrualFrequency ?? 'monthly');
   const [maxAccrual, setMaxAccrual] = useState(String(policy?.maxAccrual ?? ''));
   const queryClient = useQueryClient();
@@ -173,10 +173,10 @@ function PolicyFormModal({ open, onClose, policy }: { open: boolean; onClose: ()
         <Input label="Policy Name" value={name} onChange={(e) => setName(e.target.value)} required />
         <Select label="PTO Type" options={typeOptions} value={ptoTypeId} onChange={(e) => setPtoTypeId(e.target.value)} placeholder="Select type..." />
         <div className="grid grid-cols-2 gap-4">
-          <Input label="Accrual Rate (hours)" type="number" value={accrualRate} onChange={(e) => setAccrualRate(e.target.value)} required />
+          <Input label="Accrual Rate (days)" type="number" value={accrualRate} onChange={(e) => setAccrualRate(e.target.value)} required />
           <Select label="Frequency" options={freqOptions} value={accrualFrequency} onChange={(e) => setAccrualFrequency(e.target.value)} />
         </div>
-        <Input label="Max Accrual (hours, optional)" type="number" value={maxAccrual} onChange={(e) => setMaxAccrual(e.target.value)} />
+        <Input label="Max Accrual (days, optional)" type="number" value={maxAccrual} onChange={(e) => setMaxAccrual(e.target.value)} />
 
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>

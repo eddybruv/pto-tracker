@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/Button';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { RequestPtoModal } from '@/features/requests/RequestPtoModal';
-import { cn, formatHours, capitalizeFirst } from '@/lib/utils';
+import { cn, formatDays, capitalizeFirst } from '@/lib/utils';
 import { formatDate, formatDateRange } from '@/lib/date-utils';
 import api from '@/lib/api';
 import type { PtoBalance, PtoRequest } from '@/types';
@@ -108,7 +108,7 @@ export function DashboardPage() {
           const code = balance.ptoTypeCode?.toLowerCase() ?? 'vacation';
           const colors = typeColors[code] ?? typeColors.vacation;
           const icon = typeIcons[code] ?? typeIcons.vacation;
-          const totalHours = balance.availableHours + balance.pendingHours + balance.usedYtd;
+          const totalAllotted = balance.availableDays + balance.pendingDays + balance.usedYtd;
 
           return (
             <Card
@@ -126,7 +126,7 @@ export function DashboardPage() {
               </div>
               <div className="mb-3">
                 <span className={cn('text-3xl font-display font-bold', colors.text)}>
-                  {formatHours(balance.availableHours)}
+                  {formatDays(balance.availableDays)}
                 </span>
                 <span className="text-xs text-slate-500 ml-2">available</span>
               </div>
@@ -134,12 +134,12 @@ export function DashboardPage() {
               <div className="h-1.5 rounded-full bg-slate-700/50 overflow-hidden mb-3">
                 <div
                   className={cn('h-full rounded-full transition-all duration-500', code === 'vacation' ? 'bg-ocean-500' : code === 'sick' ? 'bg-sage-500' : 'bg-violet-500')}
-                  style={{ width: `${totalHours > 0 ? (balance.usedYtd / totalHours) * 100 : 0}%` }}
+                  style={{ width: `${totalAllotted > 0 ? (balance.usedYtd / totalAllotted) * 100 : 0}%` }}
                 />
               </div>
               <div className="flex justify-between text-[11px] text-slate-500">
-                <span>{formatHours(balance.usedYtd)} used</span>
-                <span>{formatHours(balance.pendingHours)} pending</span>
+                <span>{formatDays(balance.usedYtd)} used</span>
+                <span>{formatDays(balance.pendingDays)} pending</span>
               </div>
             </Card>
           );
@@ -213,7 +213,7 @@ export function DashboardPage() {
                 <tr className="border-b border-slate-700/50">
                   <th className="text-left px-5 py-2.5 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Type</th>
                   <th className="text-left px-5 py-2.5 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Dates</th>
-                  <th className="text-left px-5 py-2.5 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Hours</th>
+                  <th className="text-left px-5 py-2.5 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Days</th>
                   <th className="text-left px-5 py-2.5 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Status</th>
                   <th className="text-left px-5 py-2.5 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Submitted</th>
                 </tr>
@@ -228,7 +228,7 @@ export function DashboardPage() {
                       {formatDateRange(req.startDate, req.endDate)}
                     </td>
                     <td className="px-5 py-3 font-display text-slate-300">
-                      {formatHours(req.totalHours)}
+                      {formatDays(req.totalDays)}
                     </td>
                     <td className="px-5 py-3">
                       <Badge variant={statusVariant[req.status] ?? 'slate'} dot>

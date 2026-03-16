@@ -9,13 +9,12 @@ export function getInitials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
 
-export function formatHours(hours: number): string {
-  if (hours === 0) return '0h';
-  const days = Math.floor(hours / 8);
-  const remainingHours = hours % 8;
-  if (days === 0) return `${remainingHours}h`;
-  if (remainingHours === 0) return `${days}d`;
-  return `${days}d ${remainingHours}h`;
+export function formatDays(days: number): string {
+  if (days === 0) return '0 days';
+  const abs = Math.abs(days);
+  const sign = days < 0 ? '-' : '';
+  if (abs === 1) return `${sign}1 day`;
+  return `${sign}${abs} days`;
 }
 
 export function capitalizeFirst(str: string): string {
