@@ -43,7 +43,6 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         const response = await api.post('/auth/login', { email, password });
         const { user, tokens, roles } = response.data.data;
-        console.log('Login successful:', user);
 
         localStorage.setItem('accessToken', tokens.accessToken);
         localStorage.setItem('refreshToken', tokens.refreshToken);
