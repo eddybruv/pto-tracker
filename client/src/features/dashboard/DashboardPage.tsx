@@ -149,7 +149,7 @@ export function DashboardPage() {
       {/* Quick Stats for Managers */}
       {isManager && pendingApprovals !== undefined && pendingApprovals > 0 && (
         <Link to="/approvals">
-          <Card hover className="animate-fade-in border-amber-500/20 bg-amber-500/5">
+          <Card hover className="animate-fade-in border-amber-500/20 bg-amber-500/5 mb-[32px]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
