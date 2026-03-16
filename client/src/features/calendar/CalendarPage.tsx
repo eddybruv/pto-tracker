@@ -154,7 +154,7 @@ export function CalendarPage() {
                         </div>
                       )}
                       {dayEvents.slice(0, 2).map((evt) => {
-                        const code = evt.ptoType?.code?.toLowerCase() ?? 'vacation';
+                        const code = evt.ptoTypeCode?.toLowerCase() ?? 'vacation';
                         return (
                           <div
                             key={evt.id}
