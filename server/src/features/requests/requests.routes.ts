@@ -96,11 +96,11 @@ router.get('/:id', asyncHandler(async (req, res) => {
  * Create new PTO request
  */
 router.post('/', asyncHandler(async (req, res) => {
-  const { ptoTypeId, startDate, endDate, isHalfDayStart, isHalfDayEnd, totalHours, notes } = req.body;
+  const { ptoTypeId, startDate, endDate, isHalfDayStart, isHalfDayEnd, totalDays, notes } = req.body;
   const userId = req.user.userId;
 
-  if (!ptoTypeId || !startDate || !endDate || !totalHours) {
-    throw AppError.badRequest('ptoTypeId, startDate, endDate, and totalHours are required');
+  if (!ptoTypeId || !startDate || !endDate || !totalDays) {
+    throw AppError.badRequest('ptoTypeId, startDate, endDate, and totalDays are required');
   }
 
   const result = await transaction(async (tx) => {
@@ -112,7 +112,7 @@ router.post('/', asyncHandler(async (req, res) => {
 
     if (!balance) throw AppError.badRequest('No balance found for this PTO type');
 
-    if (balance.availableHours - balance.pendingHours < totalHours) {
+    if (balance.availableDays - balance.pendingDays < totalDays) {
       throw AppError.badRequest('Insufficient PTO balance');
     }
 
@@ -128,25 +128,25 @@ router.post('/', asyncHandler(async (req, res) => {
 
     // Create request
     const request = await tx.queryOne<PtoRequest>(
-      `INSERT INTO pto_requests (user_id, pto_type_id, start_date, end_date, is_half_day_start, is_half_day_end, total_hours, notes, status)
+      `INSERT INTO pto_requests (user_id, pto_type_id, start_date, end_date, is_half_day_start, is_half_day_end, total_days, notes, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
        RETURNING *`,
-      [userId, ptoTypeId, startDate, endDate, isHalfDayStart ?? false, isHalfDayEnd ?? false, totalHours, notes || null]
+      [userId, ptoTypeId, startDate, endDate, isHalfDayStart ?? false, isHalfDayEnd ?? false, totalDays, notes || null]
     );
 
     if (!request) throw AppError.internal('Failed to create request');
 
     // Update pending balance
     await tx.query(
-      'UPDATE pto_balances SET pending_hours = pending_hours + $1 WHERE user_id = $2 AND pto_type_id = $3',
-      [totalHours, userId, ptoTypeId]
+      'UPDATE pto_balances SET pending_days = pending_days + $1 WHERE user_id = $2 AND pto_type_id = $3',
+      [totalDays, userId, ptoTypeId]
     );
 
     // Create pending ledger entry
     await tx.query(
-      `INSERT INTO balance_ledger (user_id, pto_type_id, transaction_type, hours, running_balance, effective_date, request_id, description)
+      `INSERT INTO balance_ledger (user_id, pto_type_id, transaction_type, days, running_balance, effective_date, request_id, description)
        VALUES ($1, $2, 'debit', $3, $4, $5, $6, 'PTO request submitted')`,
-      [userId, ptoTypeId, -totalHours, balance.availableHours, startDate, request.id]
+      [userId, ptoTypeId, -totalDays, balance.availableDays, startDate, request.id]
     );
 
     // Create approval record — find the user's manager or an admin
@@ -176,7 +176,7 @@ router.post('/', asyncHandler(async (req, res) => {
  * Update PTO request (only if pending)
  */
 router.patch('/:id', asyncHandler(async (req, res) => {
-  const { startDate, endDate, isHalfDayStart, isHalfDayEnd, totalHours, notes } = req.body;
+  const { startDate, endDate, isHalfDayStart, isHalfDayEnd, totalDays, notes } = req.body;
 
   const existing = await queryOne<PtoRequest>(
     'SELECT * FROM pto_requests WHERE id = $1 AND user_id = $2',
@@ -187,13 +187,13 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   if (existing.status !== 'pending') throw AppError.badRequest('Only pending requests can be updated');
 
   const result = await transaction(async (tx) => {
-    const newHours = totalHours ?? existing.totalHours;
-    const hoursDiff = newHours - existing.totalHours;
+    const newHours = totalDays ?? existing.totalDays;
+    const daysDiff = newHours - existing.totalDays;
 
-    if (hoursDiff !== 0) {
+    if (daysDiff !== 0) {
       await tx.query(
-        'UPDATE pto_balances SET pending_hours = pending_hours + $1 WHERE user_id = $2 AND pto_type_id = $3',
-        [hoursDiff, req.user.userId, existing.ptoTypeId]
+        'UPDATE pto_balances SET pending_days = pending_days + $1 WHERE user_id = $2 AND pto_type_id = $3',
+        [daysDiff, req.user.userId, existing.ptoTypeId]
       );
     }
 
@@ -203,11 +203,11 @@ router.patch('/:id', asyncHandler(async (req, res) => {
          end_date = COALESCE($2, end_date),
          is_half_day_start = COALESCE($3, is_half_day_start),
          is_half_day_end = COALESCE($4, is_half_day_end),
-         total_hours = COALESCE($5, total_hours),
+         total_days = COALESCE($5, total_days),
          notes = COALESCE($6, notes)
        WHERE id = $7 RETURNING *`,
       [startDate || null, endDate || null, isHalfDayStart ?? null, isHalfDayEnd ?? null,
-       totalHours ?? null, notes ?? null, req.params['id']]
+       totalDays ?? null, notes ?? null, req.params['id']]
     );
   });
 
@@ -237,29 +237,29 @@ router.post('/:id/cancel', asyncHandler(async (req, res) => {
     // Reverse balance changes
     if (request.status === 'pending') {
       await tx.query(
-        'UPDATE pto_balances SET pending_hours = pending_hours - $1 WHERE user_id = $2 AND pto_type_id = $3',
-        [request.totalHours, request.userId, request.ptoTypeId]
+        'UPDATE pto_balances SET pending_days = pending_days - $1 WHERE user_id = $2 AND pto_type_id = $3',
+        [request.totalDays, request.userId, request.ptoTypeId]
       );
     } else if (request.status === 'approved') {
       await tx.query(
         `UPDATE pto_balances SET
-           available_hours = available_hours + $1,
+           available_days = available_days + $1,
            used_ytd = used_ytd - $1
          WHERE user_id = $2 AND pto_type_id = $3`,
-        [request.totalHours, request.userId, request.ptoTypeId]
+        [request.totalDays, request.userId, request.ptoTypeId]
       );
     }
 
     // Create reversal ledger entry
     const balance = await tx.queryOne<PtoBalance>(
-      'SELECT available_hours FROM pto_balances WHERE user_id = $1 AND pto_type_id = $2',
+      'SELECT available_days FROM pto_balances WHERE user_id = $1 AND pto_type_id = $2',
       [request.userId, request.ptoTypeId]
     );
 
     await tx.query(
-      `INSERT INTO balance_ledger (user_id, pto_type_id, transaction_type, hours, running_balance, effective_date, request_id, description)
+      `INSERT INTO balance_ledger (user_id, pto_type_id, transaction_type, days, running_balance, effective_date, request_id, description)
        VALUES ($1, $2, 'adjustment', $3, $4, CURRENT_DATE, $5, 'Request cancelled')`,
-      [request.userId, request.ptoTypeId, request.totalHours, balance?.availableHours ?? 0, request.id]
+      [request.userId, request.ptoTypeId, request.totalDays, balance?.availableDays ?? 0, request.id]
     );
 
     const updated = await tx.queryOne<PtoRequest>(

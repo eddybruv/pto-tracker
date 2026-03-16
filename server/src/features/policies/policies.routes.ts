@@ -49,19 +49,19 @@ router.post('/', requireRoles('admin') as never, asyncHandler(async (req, res) =
   const {
     name, ptoTypeId, accrualRate, accrualFrequency, maxAccrual,
     carryoverCap, carryoverExpiryMonths, allowNegative, maxNegative,
-    probationDays, minIncrementHours,
+    probationDays, minIncrementDays,
   } = req.body;
 
   const policy = await queryOne<Policy>(
     `INSERT INTO policies (
        name, pto_type_id, accrual_rate, accrual_frequency, max_accrual,
        carryover_cap, carryover_expiry_months, allow_negative, max_negative,
-       probation_days, min_increment_hours
+       probation_days, min_increment_days
      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      RETURNING *`,
     [name, ptoTypeId, accrualRate, accrualFrequency || 'monthly', maxAccrual ?? null,
      carryoverCap ?? null, carryoverExpiryMonths ?? null, allowNegative ?? false,
-     maxNegative ?? 0, probationDays ?? 0, minIncrementHours ?? 1]
+     maxNegative ?? 0, probationDays ?? 0, minIncrementDays ?? 1]
   );
 
   res.status(201).json({ success: true, data: policy });
@@ -75,7 +75,7 @@ router.patch('/:id', requireRoles('admin') as never, asyncHandler(async (req, re
   const allowed = [
     'name', 'accrualRate', 'accrualFrequency', 'maxAccrual', 'carryoverCap',
     'carryoverExpiryMonths', 'allowNegative', 'maxNegative', 'probationDays',
-    'minIncrementHours', 'isActive',
+    'minIncrementDays', 'isActive',
   ];
 
   const snakeMap: Record<string, string> = {
@@ -83,7 +83,7 @@ router.patch('/:id', requireRoles('admin') as never, asyncHandler(async (req, re
     maxAccrual: 'max_accrual', carryoverCap: 'carryover_cap',
     carryoverExpiryMonths: 'carryover_expiry_months', allowNegative: 'allow_negative',
     maxNegative: 'max_negative', probationDays: 'probation_days',
-    minIncrementHours: 'min_increment_hours', isActive: 'is_active',
+    minIncrementDays: 'min_increment_days', isActive: 'is_active',
   };
 
   const fields: string[] = [];

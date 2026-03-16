@@ -31,27 +31,27 @@ export function RequestPtoModal({ open, onClose }: Props) {
     },
   });
 
-  const calcTotalHours = (start: string, end: string): number => {
+  const calcTotalDays = (start: string, end: string): number => {
     const s = new Date(start + 'T00:00:00');
     const e = new Date(end + 'T00:00:00');
-    let days = 0;
+    let count = 0;
     const current = new Date(s);
     while (current <= e) {
       const dow = current.getDay();
-      if (dow !== 0 && dow !== 6) days++;
+      if (dow !== 0 && dow !== 6) count++;
       current.setDate(current.getDate() + 1);
     }
-    return days * 8;
+    return count;
   };
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const totalHours = calcTotalHours(startDate, endDate);
+      const totalDays = calcTotalDays(startDate, endDate);
       const res = await api.post('/requests', {
         ptoTypeId,
         startDate,
         endDate,
-        totalHours,
+        totalDays,
         notes: notes || undefined,
       });
       return res.data;

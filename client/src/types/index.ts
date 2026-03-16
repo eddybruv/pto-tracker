@@ -52,7 +52,7 @@ export interface Policy {
   allowNegative: boolean;
   maxNegative: number;
   probationDays: number;
-  minIncrementHours: number;
+  minIncrementDays: number;
   isActive: boolean;
 }
 
@@ -61,11 +61,11 @@ export interface PtoBalance {
   userId: string;
   ptoTypeId: string;
   policyId: string;
-  availableHours: number;
-  pendingHours: number;
+  availableDays: number;
+  pendingDays: number;
   usedYtd: number;
   accruedYtd: number;
-  carryoverHours: number;
+  carryoverDays: number;
   carryoverExpires: string | null;
   ptoTypeName?: string;
   ptoTypeCode?: string;
@@ -77,7 +77,7 @@ export interface BalanceLedgerEntry {
   userId: string;
   ptoTypeId: string;
   transactionType: LedgerTxnType;
-  hours: number;
+  days: number;
   runningBalance: number;
   effectiveDate: string;
   requestId: string | null;
@@ -96,7 +96,7 @@ export interface PtoRequest {
   endDate: string;
   isHalfDayStart: boolean;
   isHalfDayEnd: boolean;
-  totalHours: number;
+  totalDays: number;
   notes: string | null;
   status: RequestStatus;
   cancelledAt: string | null;

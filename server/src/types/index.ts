@@ -78,7 +78,7 @@ export interface Policy extends Timestamps {
   allowNegative: boolean;
   maxNegative: number;
   probationDays: number;
-  minIncrementHours: number;
+  minIncrementDays: number;
   isActive: boolean;
 }
 
@@ -95,11 +95,11 @@ export interface PtoBalance extends Timestamps {
   userId: string;
   ptoTypeId: string;
   policyId: string;
-  availableHours: number;
-  pendingHours: number;
+  availableDays: number;
+  pendingDays: number;
   usedYtd: number;
   accruedYtd: number;
-  carryoverHours: number;
+  carryoverDays: number;
   carryoverExpires: Date | null;
 }
 
@@ -108,7 +108,7 @@ export interface BalanceLedger {
   userId: string;
   ptoTypeId: string;
   transactionType: LedgerTxnType;
-  hours: number;
+  days: number;
   runningBalance: number;
   effectiveDate: Date;
   requestId: string | null;
@@ -125,7 +125,7 @@ export interface PtoRequest extends Timestamps {
   endDate: Date;
   isHalfDayStart: boolean;
   isHalfDayEnd: boolean;
-  totalHours: number;
+  totalDays: number;
   notes: string | null;
   status: RequestStatus;
   cancelledAt: Date | null;

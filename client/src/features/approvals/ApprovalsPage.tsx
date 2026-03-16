@@ -9,7 +9,7 @@ import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal } from '@/components/ui/Modal';
-import { cn, formatHours } from '@/lib/utils';
+import { cn, formatDays } from '@/lib/utils';
 import { formatDateRange } from '@/lib/date-utils';
 import { useUIStore } from '@/stores/ui.store';
 import api from '@/lib/api';
@@ -88,7 +88,7 @@ export function ApprovalsPage() {
                     <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                       <Badge variant="ocean">{req.ptoTypeName ?? 'PTO'}</Badge>
                       <span>{formatDateRange(req.startDate, req.endDate)}</span>
-                      <span className="font-display">{formatHours(req.totalHours)}</span>
+                      <span className="font-display">{formatDays(req.totalDays)}</span>
                     </div>
                   </div>
                 </div>
@@ -161,8 +161,8 @@ export function ApprovalsPage() {
                 <p className="text-sm text-slate-200">{selectedRequest.ptoTypeName ?? 'PTO'}</p>
               </div>
               <div>
-                <p className="text-[10px] font-display tracking-wider uppercase text-slate-500 mb-0.5">Hours</p>
-                <p className="text-sm text-slate-200">{formatHours(selectedRequest.totalHours)}</p>
+                <p className="text-[10px] font-display tracking-wider uppercase text-slate-500 mb-0.5">Days</p>
+                <p className="text-sm text-slate-200">{formatDays(selectedRequest.totalDays)}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-[10px] font-display tracking-wider uppercase text-slate-500 mb-0.5">Dates</p>

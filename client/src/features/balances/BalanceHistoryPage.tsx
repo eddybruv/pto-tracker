@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { PageSpinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { cn, formatHours } from '@/lib/utils';
+import { cn, formatDays } from '@/lib/utils';
 import { formatDate } from '@/lib/date-utils';
 import api from '@/lib/api';
 import type { BalanceLedgerEntry, PtoType, LedgerTxnType } from '@/types';
@@ -90,7 +90,7 @@ export function BalanceHistoryPage() {
                   <th className="text-left px-5 py-3 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Type</th>
                   <th className="text-left px-5 py-3 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Transaction</th>
                   <th className="text-left px-5 py-3 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Description</th>
-                  <th className="text-right px-5 py-3 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Hours</th>
+                  <th className="text-right px-5 py-3 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Days</th>
                   <th className="text-right px-5 py-3 text-[10px] font-display font-semibold tracking-[0.15em] uppercase text-slate-500">Balance</th>
                 </tr>
               </thead>
@@ -116,13 +116,13 @@ export function BalanceHistoryPage() {
                     </td>
                     <td className="px-5 py-3 text-right font-display">
                       <span className={cn(
-                        entry.hours > 0 ? 'text-sage-400' : entry.hours < 0 ? 'text-rose-400' : 'text-slate-400'
+                        entry.days > 0 ? 'text-sage-400' : entry.days < 0 ? 'text-rose-400' : 'text-slate-400'
                       )}>
-                        {entry.hours > 0 ? '+' : ''}{formatHours(entry.hours)}
+                        {entry.days > 0 ? '+' : ''}{formatDays(entry.days)}
                       </span>
                     </td>
                     <td className="px-5 py-3 text-right font-display text-slate-300">
-                      {formatHours(entry.runningBalance)}
+                      {formatDays(entry.runningBalance)}
                     </td>
                   </tr>
                 ))}

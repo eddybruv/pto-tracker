@@ -102,8 +102,8 @@ export async function register(data: {
     );
 
     // Assign all active policies and create default balances
-    // 20 vacation days (160h), 7 sick days (56h), 7 personal days (56h)
-    const defaultHours: Record<string, number> = { VAC: 160, SICK: 56, PERS: 56 };
+    // 20 vacation days, 7 sick days, 7 personal days
+    const defaultDays: Record<string, number> = { VAC: 20, SICK: 7, PERS: 7 };
 
     const policies = await tx.query<{ id: string; ptoTypeId: string; code: string }>(
       `SELECT p.id, p.pto_type_id, pt.code
@@ -119,11 +119,11 @@ export async function register(data: {
         [user.id, policy.id, data.hireDate]
       );
 
-      const hours = defaultHours[policy.code] ?? 0;
+      const days = defaultDays[policy.code] ?? 0;
       await tx.query(
-        `INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_hours, pending_hours, used_ytd, accrued_ytd, carryover_hours)
+        `INSERT INTO pto_balances (user_id, pto_type_id, policy_id, available_days, pending_days, used_ytd, accrued_ytd, carryover_days)
          VALUES ($1, $2, $3, $4, 0, 0, $4, 0)`,
-        [user.id, policy.ptoTypeId, policy.id, hours]
+        [user.id, policy.ptoTypeId, policy.id, days]
       );
     }
 
