@@ -48,7 +48,7 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
         if (e.target === overlayRef.current) onClose();
       }}
     >
-      <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-[#0b0d13]/70 backdrop-blur-sm" />
       <div
         className={cn(
           'relative w-full rounded-xl bg-slate-850 border border-slate-700/50 shadow-[0_24px_64px_rgba(0,0,0,0.4)]',

@@ -66,8 +66,31 @@ body {
 }
 
 body.light {
-  background-color: var(--color-warm-50);
-  color: var(--color-slate-800);
+  /* Flip the slate scale — warm grays for light mode */
+  --color-slate-950: #ffffff;
+  --color-slate-900: #faf9f7;
+  --color-slate-850: #ffffff;
+  --color-slate-800: #f4f2ee;
+  --color-slate-750: #eae7e1;
+  --color-slate-700: #dcd8d0;
+  --color-slate-600: #bfbab2;
+  --color-slate-500: #8a857e;
+  --color-slate-400: #6b665f;
+  --color-slate-300: #4a453e;
+  --color-slate-200: #2d2823;
+  --color-slate-100: #1c1814;
+  --color-slate-50: #0f0c08;
+
+  /* Deepen accent 400s for readability on light backgrounds */
+  --color-amber-400: #c88a2e;
+  --color-amber-300: #d49a38;
+  --color-ocean-400: #2563eb;
+  --color-sage-400: #16a34a;
+  --color-violet-400: #7c3aed;
+  --color-rose-400: #dc2626;
+
+  background-color: var(--color-slate-900);
+  color: var(--color-slate-200);
 }
 
 ::-webkit-scrollbar {
@@ -86,6 +109,25 @@ body.light {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-slate-500);
+}
+
+/* Light mode: softer shadows and scrollbar */
+body.light ::-webkit-scrollbar-thumb {
+  background: var(--color-slate-600);
+}
+
+body.light ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-slate-500);
+}
+
+body.light ::selection {
+  background: var(--color-amber-500);
+  color: #ffffff;
+}
+
+/* Softer grain effect in light mode */
+body.light .grain::before {
+  opacity: 0.015;
 }
 
 .grain::before {

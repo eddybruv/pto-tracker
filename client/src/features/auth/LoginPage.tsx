@@ -42,7 +42,7 @@ export function LoginPage() {
   return (
     <div className="grain min-h-screen flex">
       {/* Left panel - decorative */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-slate-950 items-center justify-center overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 relative bg-[#0b0d13] items-center justify-center overflow-hidden">
         {/* Geometric pattern */}
         <div className="absolute inset-0 opacity-[0.04]">
           <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -60,26 +60,26 @@ export function LoginPage() {
           <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-8">
             <Palmtree className="h-10 w-10 text-amber-400" />
           </div>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-slate-100 mb-4">
+          <h1 className="font-display text-4xl font-bold tracking-tight text-[#e8eaf0] mb-4">
             Time Off,<br />
-            <span className="text-amber-400">Tracked.</span>
+            <span className="text-[#f0b85a]">Tracked.</span>
           </h1>
-          <p className="text-slate-400 text-lg leading-relaxed max-w-md mx-auto">
+          <p className="text-[#8a8f9f] text-lg leading-relaxed max-w-md mx-auto">
             Simple PTO management for teams that would rather be building things.
           </p>
-          <div className="mt-12 flex items-center justify-center gap-8 text-slate-600">
+          <div className="mt-12 flex items-center justify-center gap-8 text-[#3d4254]">
             <div className="text-center">
-              <div className="font-display text-2xl font-bold text-slate-300">18</div>
+              <div className="font-display text-2xl font-bold text-[#b0b5c3]">18</div>
               <div className="text-xs tracking-wider uppercase mt-1">Developers</div>
             </div>
-            <div className="w-px h-10 bg-slate-800" />
+            <div className="w-px h-10 bg-[#1a1d27]" />
             <div className="text-center">
-              <div className="font-display text-2xl font-bold text-slate-300">3</div>
+              <div className="font-display text-2xl font-bold text-[#b0b5c3]">3</div>
               <div className="text-xs tracking-wider uppercase mt-1">PTO Types</div>
             </div>
-            <div className="w-px h-10 bg-slate-800" />
+            <div className="w-px h-10 bg-[#1a1d27]" />
             <div className="text-center">
-              <div className="font-display text-2xl font-bold text-slate-300">0</div>
+              <div className="font-display text-2xl font-bold text-[#b0b5c3]">0</div>
               <div className="text-xs tracking-wider uppercase mt-1">HR Dept</div>
             </div>
           </div>
